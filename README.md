@@ -44,4 +44,4 @@ Running on http://127.0.0.1:portxxxx/ (Press CTRL+C to quit)
 
 ## Author
 
-* **ZERROUKI SAMIR** - [zerrouki95samir](https://github.com/zerrouki95samir)
+* **ZERROUKI SAMIR** - [zerrouki95samir](https://github.com/zerrouki95samir) - samir.etude.zerrouki@gmail.com
