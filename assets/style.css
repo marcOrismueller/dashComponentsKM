@@ -1,0 +1,13 @@
+.card_value
+  .custom-control-input
+  ~ .custom-control-label::before {
+  background-color: #fa7268;
+  border-color: #ea6258;
+  display: none;
+}
+/*
+.card_value 
+.custom-control-label{
+  cursor: pointer;
+}
+*/
