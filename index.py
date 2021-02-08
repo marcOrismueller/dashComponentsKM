@@ -5,7 +5,7 @@ from dash.dependencies import Input, Output, State
 from app import app
 from apps import app0, app1, app2
 
-
+server = app.server
 
 app.layout = html.Div([
     dcc.Store(id='input_data'),
