@@ -7,40 +7,38 @@ import dash
 from dash.exceptions import PreventUpdate
 import json
 from app import app
+import pandas as pd
 from apps.fnc_container import helpers as hlp
 
-list_1 = ['5 Red', '4 Green 6 Yellow', '3 Blue 2 DarkRed', '9 Indigo 3 Red', '18 DarkRed', '12 DarkKhaki', '5 Pink', '8 Red', '4 Red']
-list_2 = ['10 Red 7 Yellow', '8 Blue', '4 Green', '5 Pink 10 Indigo', '20 DarkRed', '12 DarkKhaki', '1 Red']
-
-def show_items(list_2=list_2, mainCallBack=True):
+def show_items(listgroup_values, mainCallBack=True):
     if mainCallBack:
         return [
             dbc.ListGroupItem(
                 id={'id': 'lst_item', 'index': i},
-                children=[x]
+                children=[f"{x['quantity']} {x['type']}"]
             )
-            for i, x in enumerate(list_2)
+            for i, x in listgroup_values.iterrows()
+            if x['quantity'] > 0
         ]
     
     return dbc.ListGroup([
-
         dbc.ListGroupItem(
-            id={'id': 'lst_item', 'index': i},
-            children=[x]
+            id={'id': 'lst_item', 'index': x['type_id_int']},
+            children=[f"{x['quantity']} {x['type']}"]
         )
-        for i, x in enumerate(list_2)
-
+        for i, x in listgroup_values.iterrows()
+        if x['quantity'] > 0
     ], style={'marginTop': '10px', 'marginLeft': '10px'})
 
 
-def show_cards(list_1=list_1):
+def show_cards(cards_values_df):
 
     cards = html.Div([
         dbc.Card(id={
                     'id': 'card',
-                    'index': i
+                    'index': b['type_id_int']
             }, children=[
-            dbc.CardHeader(f"Card {i+1}"),
+            dbc.CardHeader(f"Card {b['type_id_int']+1}"),
             dbc.CardBody(
                 children=[
                     dbc.Checklist(
@@ -68,14 +66,14 @@ def show_cards(list_1=list_1):
                     className="mr-1",
                     id={
                         'id': 'commit_substraction_btn',
-                        'index': i
+                        'index': b['type_id_int']
                     },
                     disabled=True
                 )],
                 style={'textAlign': 'center'})
         ], style={'marginTop': '10px', 'marginRight': '10px', 'whiteSpace': 'pre-line'})
 
-        for i, b in enumerate(list_1)
+        for i, b in cards_values_df.iterrows()
     ])
 
     return cards
@@ -103,15 +101,15 @@ layout = html.Div(
                     ], style={'marginRight': '15px'})
                 ])
             ]),
-            dbc.Row(id= 'pie_page', children=[
+            dbc.Row(id= 'go_to_details', children=[
                 dbc.Col(
                     dcc.Link(
                         dbc.Button(
                             "Show Details", outline=True, color="secondary", className="mr-1"
                         ),
-                        href='/pie', 
+                        href='/subtraction-details', 
                         style={'float': 'right', 'margin': '40px 30px 0 0'}, 
-                        id='pie_page_btn', 
+                        id='details_btn', 
                 ))
             ], style={'display': 'none'}),
             html.H3(id='test_output')
@@ -121,39 +119,30 @@ layout = html.Div(
 @app.callback(
     Output('show_list', 'children'),
     Output('show_cards', 'children'),
-    Output('initial_data', 'data'),
     Input('input_data', 'data'), 
-    #State('latest_update', 'data')
 )
 def show_page(input_data): 
+    input_data = input_data or {}
 
     if not input_data:
-        listgroup_values = list_2
-        cards_values = list_1
-    else: 
-        listgroup_values = input_data['initial'].get('listgroup_values', [])
-        cards_values = input_data['initial'].get('cards_values', [])
+        raise PreventUpdate
+    listgroup_values_df = pd.DataFrame.from_dict(input_data['initial'].get('listgroup_values', []))
+    cards_values_df = pd.DataFrame.from_dict(input_data['initial'].get('cards_values', []))
 
-    return show_items(listgroup_values, True), show_cards(cards_values), {
-            'listgroup_values': listgroup_values,
-            'cards_values': cards_values
-        }
+    return show_items(listgroup_values_df, True), show_cards(cards_values_df)
     
 @app.callback(
     Output({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
     Output('items', 'children'),
     Output({'id': 'card_value', 'index': ALL}, 'options'),
-
     Input({'id': 'card_value', 'index': ALL}, 'value'),
     State({'id': 'card_value', 'index': ALL}, 'options'),
-    State('initial_data', 'data'),
-    State('items_state', 'data')
+    State('input_data', 'data'),
 )
-def substruct_if_clicked(card_values, card_options, initial_data, items_state):
-    if not initial_data: 
+def substruct_if_clicked(card_values, card_options, input_data):
+    input_data = input_data or {}
+    if not input_data or not card_options: 
         raise PreventUpdate
-
-    items_state = items_state or {}
 
     btns_visibility = []
     selected_vals = {}
@@ -167,95 +156,50 @@ def substruct_if_clicked(card_values, card_options, initial_data, items_state):
         else: 
             btns_visibility.append(True)
         
-
-    current_listgroup = initial_data['listgroup_values']
-    new_items, new_card_options = hlp.subtract_selected(hlp.re_struct(current_listgroup), selected_vals, card_options, card_values)
+    current_listgroup = input_data['initial']['listgroup_values']
+    cards_values_all = input_data['initial']['cards_values']
+    new_items, new_card_options =  hlp.subtract_selected_v2(current_listgroup, cards_values_all, selected_vals, card_options)
 
     return btns_visibility, show_items(new_items, False), new_card_options
 
 
-@app.callback(
-    Output('items_state', 'data'),
-    Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
-    State({'id': 'card_value', 'index': ALL}, 'value'),
-    State({'id': 'card_value', 'index': ALL}, 'options'),
-    State('items_state', 'data'),
-    State('initial_data', 'data'),
-)
-def cards_handler(n_click, card_value, checklist_options, items_state, initial_data):
-    if not initial_data: 
-        raise PreventUpdate
-
-    items_state = items_state or {}
-
-    if [click for click in n_click if click]:
-        callback = dash.callback_context.triggered[0]['prop_id'].split('.')
-        #if callback[-1]:
-        display_next_page = {}
-        clicked_btn = callback[0]
-        clicked_btn = json.loads(clicked_btn)
-        # If you select atleast one elements from the card you clicked...
-        if card_value[clicked_btn["index"]]:
-            card_labels = checklist_options[clicked_btn["index"]]
-            subs_values = [labels.get('label') for i, labels in enumerate(card_labels) if i in card_value[clicked_btn["index"]]]
-            items_data = items_state['data']
-            items_meta = items_state['metadata']
-            cards_clicked = items_state['cards']
-            for val in subs_values:
-                for idx in items_data:
-                    card_value_color = val.split()[1]
-                    item_value = items_data[idx].get(card_value_color)
-                    if item_value:
-                        value = int(val.split()[0])
-                        items_data[idx][card_value_color] = item_value - value
-                        items_meta['results'][card_value_color] -= value
-                        card_index = f'Card {clicked_btn["index"]+1}'
-                        if card_index not in cards_clicked:
-                            cards_clicked[card_index] = {
-                                f'{card_value_color}': value
-                            }
-                        else: 
-                            if card_value_color not in cards_clicked[card_index]:
-                                cards_clicked[card_index][card_value_color] = value
-                            else: 
-                                cards_clicked[card_index][card_value_color] += value
-                        break
-
-            return hlp.commit_substraction(items_state, checklist_options, card_value, False, display_next_page, clicked_btn["index"])
-        else: 
-            raise PreventUpdate
-
-    return hlp.commit_substraction(initial_data['listgroup_values'], checklist_options, init=True)
-
 
 @app.callback(
-    Output('pie_page', 'style'),
+    Output('historical_subtraction', 'data'),
+    Output('go_to_details', 'style'),
     Output({'id': 'card', 'index': ALL}, 'style'),
-    Input('items_state', 'data'),
+    Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
+    State('input_data', 'data'),
+    State('historical_subtraction', 'data'),
     State({'id': 'card', 'index': ALL}, 'style'),
 )
-def update_items(items_state, cards):
-    items_state = items_state or {}
-    if not items_state:
+def subtract_handler(n_clicks, input_data, historical_subtraction, card_style):
+    if not [click for click in n_clicks if click] or not input_data: 
         raise PreventUpdate
+    
+    historical_subtraction = historical_subtraction or {}
+    
+    callback = dash.callback_context.triggered[0]['prop_id'].split('.')
+    clicked_btn = callback[0]
+    clicked_btn = json.loads(clicked_btn)
+    clicked_btn_index = clicked_btn.get('index', None)
+    cards_values_all = input_data['initial']['cards_values']
+    
+    cards_subtraction_details = historical_subtraction.get('cards_subtraction_details', [])
 
-    display_next_page = items_state['state_components'].get('pie_page')
-    clicked_idx = items_state['state_components']['clicked_idx']
-    if clicked_idx is not None:
-        cards[clicked_idx]['pointer-events'] = 'none'
-        cards[clicked_idx]['visibility'] = 'hidden'
-        cards[clicked_idx]['opacity'] = '0'
-        cards[clicked_idx]['transition']= 'visibility 8s, opacity 8s linear'
-    if items_state:
-        data = items_state['data']
-        meta_result = items_state['metadata']['results']
-        new_list2 = []
-        for idx in data:
-            colors = []
-            for color in data[idx]:
-                if data[idx][color] > 0 and meta_result[color] > 0:
-                    colors.append(f'{data[idx][color]} {color}')
-            if colors:
-                new_list2.append(' '.join(colors))
-        return display_next_page, cards   
-    return display_next_page, cards
+    historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction(
+        clicked_btn_index, cards_values_all, cards_subtraction_details
+    )
+
+    # Update components visibility
+    display_details_btn = {'display': 'none'}
+    if historical_subtraction['cards_subtraction_details']:
+        display_details_btn = {'display': 'block'}
+    
+    card_style[clicked_btn_index]['pointer-events'] = 'none'
+    card_style[clicked_btn_index]['visibility'] = 'hidden'
+    card_style[clicked_btn_index]['opacity'] = '0'
+    card_style[clicked_btn_index]['transition']= 'visibility 8s, opacity 8s linear'
+
+    return historical_subtraction, display_details_btn, card_style
+

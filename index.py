@@ -8,10 +8,8 @@ from apps import load_data, cards_list, details
 server = app.server
 
 app.layout = html.Div([
-    dcc.Store(id='input_data'),
-    #dcc.Store(id='latest_update'),
-    dcc.Store(id='initial_data'),
-    dcc.Store(id='items_state'),
+    dcc.Store(id='input_data', storage_type='session'),
+    dcc.Store(id='historical_subtraction'),
     dcc.Location(id='url', refresh=False),
     html.Div(
         id='page-content', 
@@ -22,16 +20,18 @@ app.layout = html.Div([
 @app.callback(
     Output('page-content', 'children'),
     Input('url', 'pathname'), 
-    State('items_state', 'data'), 
+    State('historical_subtraction', 'data'), 
 )
-def display_page(pathname, items_state):
-    if pathname == '/pie':
-        return details.build_page_2(items_state)
-    elif pathname == '/load-data':
+def display_page(pathname, historical_subtraction):
+    if pathname == '/':
         return load_data.layout
-    else:
+    elif pathname == '/items-selection':
         return cards_list.layout
+    elif pathname == '/subtraction-details':
+        return details.build_page_2(historical_subtraction)
+    else:
+        return dcc.H3('404 "URL not found"')
     # You could also return a 404 "URL not found" page here
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
