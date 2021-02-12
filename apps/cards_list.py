@@ -134,7 +134,7 @@ def show_page(input_data):
 @app.callback(
     Output({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
     Output('items', 'children'),
-    #Output({'id': 'card_value', 'index': ALL}, 'options'),
+    Output({'id': 'card_value', 'index': ALL}, 'options'),
     Input({'id': 'card_value', 'index': ALL}, 'value'),
     State({'id': 'card_value', 'index': ALL}, 'options'),
     State('input_data', 'data'),
@@ -161,8 +161,8 @@ def substruct_if_clicked(card_values, card_options, input_data):
 
     #new_items, new_card_options =  hlp.subtract_selected_v2(current_listgroup, cards_values_all, selected_vals, card_options)
 
-    new_items =  hlp.subtract_selected_v3(current_listgroup, cards_values_all, selected_vals, card_options, card_values)
-    return btns_visibility, show_items(new_items, False)#, new_card_options
+    new_items, new_card_options =  hlp.subtract_selected_v3(current_listgroup, cards_values_all, selected_vals, card_options, card_values)
+    return btns_visibility, show_items(new_items, False), new_card_options
 
 
 
@@ -190,15 +190,10 @@ def subtract_handler(n_clicks, input_data, historical_subtraction, card_style, c
     
     cards_subtraction_details = historical_subtraction.get('cards_subtraction_details', [])
 
-    # historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction(
-    #     clicked_btn_index, cards_values_all, cards_subtraction_details
-    # )
-
     historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction_v2(
         clicked_btn_index, cards_values_all, cards_subtraction_details, card_values
     )
     
-
     # Update components visibility
     display_details_btn = {'display': 'none'}
     if historical_subtraction['cards_subtraction_details']:

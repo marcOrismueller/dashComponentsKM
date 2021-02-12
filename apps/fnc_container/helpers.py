@@ -84,42 +84,19 @@ def subtract_selected_v3(current_listgroup, cards_values_all, selected_vals, car
             else:
                 print(f'disable this item: {selected_row["type_id_str"].values[0]} (not item available or quantity > stock)')
         
-    # for i, card_item in cards_vals_df.iterrows():
-    #     total = sum(listgroup_df.loc[listgroup_df['type_id_str'] == card_item['type_id_str']]['quantity'])
-    #     if card_item['quantity'] > total and card_item['type_id_int'] not in selected_type_id_int:
-    #         card_options[i][0]['disabled'] = True
-    #     else:
-    #         card_options[i][0]['disabled'] = False
-        
-    return listgroup_df#, card_options
-
-def commit_subtraction(clicked_btn_index, cards_values_all, cards_subtraction_details):
-
-    if cards_subtraction_details:
-        cards_subtraction_details = pd.DataFrame.from_dict(cards_subtraction_details)
-    else: 
-        cards_subtraction_details = pd.DataFrame(columns=['type_id_int', 'type', 'total_quantity', 'type_id_str'])
-           
-    cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
-    card_val = cards_vals_df.loc[cards_vals_df['type_id_int'] == clicked_btn_index]
-
-    def edit_total_quantity(row):
-        if row['type_id_int'] == int(clicked_btn_index): 
-            return int(card_val['quantity']) + int(row['total_quantity'])
-        return int(row['total_quantity'])
+    drop_rows = pd.DataFrame()
+    for card_id in selected_type_id_int: 
+        drop_rows = drop_rows.append(cards_vals_df[(cards_vals_df['type_id_int'] == card_id) & (cards_vals_df['opt_id'].isin(card_values[card_id]))])
+    cards_vals_df.drop(drop_rows.index, inplace=True)
     
-    if not card_val.empty:
-        if int(clicked_btn_index) not in list(cards_subtraction_details['type_id_int']):
-            cards_subtraction_details = cards_subtraction_details.append({
-                    'type_id_int': int(clicked_btn_index), 
-                    'type': card_val['type'].values[0],
-                    'total_quantity': int(card_val['quantity'].values[0]),
-                    'type_id_str': card_val['type_id_str'].values[0]
-                }, ignore_index=True)
-        else: 
-            cards_subtraction_details['total_quantity'] = cards_subtraction_details.apply(edit_total_quantity, axis=1)
-            
-    return cards_subtraction_details.to_dict('records')
+    for i, card_item in cards_vals_df.iterrows():
+        total = sum(listgroup_df.loc[listgroup_df['type_id_str'] == card_item['type_id_str']]['quantity'])
+        if card_item['quantity'] > total:
+            card_options[card_item['type_id_int']][card_item['opt_id']]['disabled'] = True
+        else:
+            card_options[card_item['type_id_int']][card_item['opt_id']]['disabled'] = False
+        
+    return listgroup_df, card_options
 
 def commit_subtraction_v2(clicked_btn_index, cards_values_all, cards_subtraction_details, card_values):
 
@@ -154,3 +131,32 @@ def commit_subtraction_v2(clicked_btn_index, cards_values_all, cards_subtraction
                 cards_subtraction_details['total_quantity'] = cards_subtraction_details.apply(lambda row: edit_total_quantity(row, card_val), axis=1)
             
     return cards_subtraction_details.to_dict('records')
+
+
+# def commit_subtraction(clicked_btn_index, cards_values_all, cards_subtraction_details):
+
+#     if cards_subtraction_details:
+#         cards_subtraction_details = pd.DataFrame.from_dict(cards_subtraction_details)
+#     else: 
+#         cards_subtraction_details = pd.DataFrame(columns=['type_id_int', 'type', 'total_quantity', 'type_id_str'])
+           
+#     cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
+#     card_val = cards_vals_df.loc[cards_vals_df['type_id_int'] == clicked_btn_index]
+
+#     def edit_total_quantity(row):
+#         if row['type_id_int'] == int(clicked_btn_index): 
+#             return int(card_val['quantity']) + int(row['total_quantity'])
+#         return int(row['total_quantity'])
+    
+#     if not card_val.empty:
+#         if int(clicked_btn_index) not in list(cards_subtraction_details['type_id_int']):
+#             cards_subtraction_details = cards_subtraction_details.append({
+#                     'type_id_int': int(clicked_btn_index), 
+#                     'type': card_val['type'].values[0],
+#                     'total_quantity': int(card_val['quantity'].values[0]),
+#                     'type_id_str': card_val['type_id_str'].values[0]
+#                 }, ignore_index=True)
+#         else: 
+#             cards_subtraction_details['total_quantity'] = cards_subtraction_details.apply(edit_total_quantity, axis=1)
+            
+#     return cards_subtraction_details.to_dict('records')

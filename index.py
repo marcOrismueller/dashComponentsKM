@@ -8,7 +8,7 @@ from apps import load_data, cards_list, details
 server = app.server
 
 app.layout = html.Div([
-    dcc.Store(id='input_data'), #, storage_type='session'
+    dcc.Store(id='input_data', storage_type='session'), 
     dcc.Store(id='historical_subtraction'),
     dcc.Location(id='url', refresh=False),
     html.Div(
