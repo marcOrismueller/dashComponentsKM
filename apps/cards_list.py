@@ -36,17 +36,17 @@ def show_cards(cards_values_df):
     cards = html.Div([
         dbc.Card(id={
                     'id': 'card',
-                    'index': b['type_id_int']
+                    'index': int(card_id)
             }, children=[
-            dbc.CardHeader(f"Card {b['type_id_int']+1}"),
+            dbc.CardHeader(f"Card {int(card_id)+1}"),
             dbc.CardBody(
                 children=[
                     dbc.Checklist(
                         id={
                             'id': 'card_value',
-                            'index': i
+                            'index': int(card_id)
                         },
-                        options=hlp.create_checkbox_opt(b),
+                        options=hlp.create_checkbox_opt(cards_values_df.loc[cards_values_df['type_id_int'] == card_id]),
                         value=[], 
                         labelCheckedStyle={
                             "textDecoration": 'line-through',
@@ -66,14 +66,14 @@ def show_cards(cards_values_df):
                     className="mr-1",
                     id={
                         'id': 'commit_substraction_btn',
-                        'index': b['type_id_int']
+                        'index': int(card_id)
                     },
                     disabled=True
                 )],
                 style={'textAlign': 'center'})
         ], style={'marginTop': '10px', 'marginRight': '10px', 'whiteSpace': 'pre-line'})
 
-        for i, b in cards_values_df.iterrows()
+        for card_id in cards_values_df['type_id_int'].drop_duplicates()
     ])
 
     return cards
@@ -134,7 +134,7 @@ def show_page(input_data):
 @app.callback(
     Output({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
     Output('items', 'children'),
-    Output({'id': 'card_value', 'index': ALL}, 'options'),
+    #Output({'id': 'card_value', 'index': ALL}, 'options'),
     Input({'id': 'card_value', 'index': ALL}, 'value'),
     State({'id': 'card_value', 'index': ALL}, 'options'),
     State('input_data', 'data'),
@@ -143,7 +143,7 @@ def substruct_if_clicked(card_values, card_options, input_data):
     input_data = input_data or {}
     if not input_data or not card_options: 
         raise PreventUpdate
-
+    
     btns_visibility = []
     selected_vals = {}
     for i, opts in enumerate(card_values):
@@ -158,9 +158,11 @@ def substruct_if_clicked(card_values, card_options, input_data):
         
     current_listgroup = input_data['initial']['listgroup_values']
     cards_values_all = input_data['initial']['cards_values']
-    new_items, new_card_options =  hlp.subtract_selected_v2(current_listgroup, cards_values_all, selected_vals, card_options)
 
-    return btns_visibility, show_items(new_items, False), new_card_options
+    #new_items, new_card_options =  hlp.subtract_selected_v2(current_listgroup, cards_values_all, selected_vals, card_options)
+
+    new_items =  hlp.subtract_selected_v3(current_listgroup, cards_values_all, selected_vals, card_options, card_values)
+    return btns_visibility, show_items(new_items, False)#, new_card_options
 
 
 
@@ -172,8 +174,9 @@ def substruct_if_clicked(card_values, card_options, input_data):
     State('input_data', 'data'),
     State('historical_subtraction', 'data'),
     State({'id': 'card', 'index': ALL}, 'style'),
+    State({'id': 'card_value', 'index': ALL}, 'value'),
 )
-def subtract_handler(n_clicks, input_data, historical_subtraction, card_style):
+def subtract_handler(n_clicks, input_data, historical_subtraction, card_style, card_values):
     if not [click for click in n_clicks if click] or not input_data: 
         raise PreventUpdate
     
@@ -187,9 +190,14 @@ def subtract_handler(n_clicks, input_data, historical_subtraction, card_style):
     
     cards_subtraction_details = historical_subtraction.get('cards_subtraction_details', [])
 
-    historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction(
-        clicked_btn_index, cards_values_all, cards_subtraction_details
+    # historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction(
+    #     clicked_btn_index, cards_values_all, cards_subtraction_details
+    # )
+
+    historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction_v2(
+        clicked_btn_index, cards_values_all, cards_subtraction_details, card_values
     )
+    
 
     # Update components visibility
     display_details_btn = {'display': 'none'}

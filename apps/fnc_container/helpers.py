@@ -9,6 +9,8 @@ def divide_chunks(l, n):
 
 def create_checkbox_opt(b):
     options = []
+    for i, opt in b.iterrows():
+        options.append({"label": opt['type'], "value": opt['opt_id']})
     # if len(b.strip().split()) > 2:
     #     new_list = divide_chunks(b.strip().split(), 2)
     #     for x, item in enumerate(new_list):
@@ -17,7 +19,7 @@ def create_checkbox_opt(b):
     #         )
     #     return options
 
-    options.append({"label": f"{b['quantity']} {b['type']}", "value": 0}) 
+    #options.append({"label": f"{b['quantity']} {b['type']}", "value": 0}) 
     return options
 
 
@@ -65,7 +67,31 @@ def subtract_selected_v2(current_listgroup, cards_values_all, selected_vals, car
         
     return listgroup_df, cards_options
 
-
+def subtract_selected_v3(current_listgroup, cards_values_all, selected_vals, card_options, card_values): 
+    listgroup_df = pd.DataFrame.from_dict(current_listgroup)
+    cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
+    
+    selected_type_id_int = list(selected_vals.keys())
+    for item_id in selected_type_id_int:
+        selected_options = cards_vals_df.loc[(cards_vals_df['type_id_int'] == item_id) & (cards_vals_df['opt_id'].isin(card_values[item_id]))]
+        # Check if type_id_str is available in listgroup_df
+        for i, selected_row in selected_options.iterrows():
+            available_items = listgroup_df.loc[listgroup_df['type_id_str'] == selected_row['type_id_str']]
+            if not available_items.empty:
+                mask = (listgroup_df['type_id_str']==selected_row['type_id_str']) & (listgroup_df['quantity'] >= selected_row['quantity'])
+                idx = mask.idxmax() if mask.any() else np.repeat(False, len(listgroup_df))
+                listgroup_df.loc[idx, 'quantity'] = listgroup_df.loc[idx, 'quantity'] - selected_row['quantity']
+            else:
+                print(f'disable this item: {selected_row["type_id_str"].values[0]} (not item available or quantity > stock)')
+        
+    # for i, card_item in cards_vals_df.iterrows():
+    #     total = sum(listgroup_df.loc[listgroup_df['type_id_str'] == card_item['type_id_str']]['quantity'])
+    #     if card_item['quantity'] > total and card_item['type_id_int'] not in selected_type_id_int:
+    #         card_options[i][0]['disabled'] = True
+    #     else:
+    #         card_options[i][0]['disabled'] = False
+        
+    return listgroup_df#, card_options
 
 def commit_subtraction(clicked_btn_index, cards_values_all, cards_subtraction_details):
 
@@ -95,3 +121,36 @@ def commit_subtraction(clicked_btn_index, cards_values_all, cards_subtraction_de
             
     return cards_subtraction_details.to_dict('records')
 
+def commit_subtraction_v2(clicked_btn_index, cards_values_all, cards_subtraction_details, card_values):
+
+    if cards_subtraction_details:
+        cards_subtraction_details = pd.DataFrame.from_dict(cards_subtraction_details)
+    else: 
+        cards_subtraction_details = pd.DataFrame(columns=['type_id_int', 'type', 'total_quantity', 'type_id_str', 'opt_id'])
+           
+    cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
+    selected_card_val = cards_vals_df.loc[(cards_vals_df['type_id_int'] == clicked_btn_index) & (cards_vals_df['opt_id'].isin(card_values[clicked_btn_index]))]
+
+    def edit_total_quantity(row, card_val):
+        if row['type_id_int'] == int(clicked_btn_index) and row['type_id_str'] == card_val['type_id_str']: 
+            return int(card_val['quantity']) + int(row['total_quantity'])
+        return int(row['total_quantity'])
+    
+    if not selected_card_val.empty:
+        for i, card_val in selected_card_val.iterrows():
+            df = cards_subtraction_details.loc[
+                (cards_subtraction_details['type_id_int'] == int(clicked_btn_index)) &
+                (cards_subtraction_details['type_id_str'] == card_val['type_id_str'])
+            ]
+            if df.empty:
+                cards_subtraction_details = cards_subtraction_details.append({
+                        'type_id_int': int(clicked_btn_index), 
+                        'type': card_val['type'],
+                        'total_quantity': int(card_val['quantity']),
+                        'type_id_str': card_val['type_id_str'],
+                        'opt_id': int(card_val['opt_id'])
+                    }, ignore_index=True)
+            else: 
+                cards_subtraction_details['total_quantity'] = cards_subtraction_details.apply(lambda row: edit_total_quantity(row, card_val), axis=1)
+            
+    return cards_subtraction_details.to_dict('records')
