@@ -1,3 +1,17 @@
+.js-plotly-plot .plotly .modebar {
+  padding-top: 5%;
+  margin-right: 3.5%;
+}
+
+body {
+  background-color: #f2f2f2;
+  font-family: Rockwell;
+  color: rgba(0,0,0,.87);
+  font-style: normal;
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
 .hidden_box
   .custom-control-input
   ~ .custom-control-label::before {
@@ -11,3 +25,108 @@
   cursor: pointer;
 }
 */
+
+#card_head{
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.pretty_container {
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  margin: 10px;
+  padding: 15px;
+  position: relative;
+  box-shadow: 2px 2px 2px lightgrey;
+}
+
+.flex-display {
+  display: flex;
+  justify-content: center;
+}
+
+#cross-filter-options{
+  display: flex;
+  flex-direction: column;
+}
+
+.dcc_control {
+  margin: 0 0 15px 0;
+  padding: 5px;
+  width: calc(100%-40px);
+}
+
+#date_picker{
+  background-color: #F9F9F9;
+}
+
+#page-content {
+  display: flex;
+  flex-direction: column;
+  margin: 2%;
+}
+
+td.CalendarDay {
+  padding: 0;
+}
+
+.DateRangePickerInput{
+  background-color: #F9F9F9;
+  border: 0px
+}
+
+.list-group-item{
+  background-color: #F9F9F9;
+  margin-bottom: 0px;
+}
+
+.left_items{
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+}
+
+.card_component{
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.infolayer{
+  background-color: transparent;
+}
+
+.card_container{
+  display: flex;
+  align-items: stretch;
+  padding: 10px;
+ 
+}
+
+.card2{
+  justify-self: stretch;
+  margin-top: 10px;
+  margin-right: 10px;
+  white-space: pre-line;
+}
+
+.container {
+  grid-template-columns: 100px 50px 100px;
+  grid-template-rows: 80px auto 80px; 
+  column-gap: 10px;
+  row-gap: 15px;
+  justify-items: stretch;
+}
+
+.form-control{
+  font-size: 1.8rem;
+}
+
+.btn{
+  font-size: 1.1rem;
+}
+
+#items{
+  font-size: 1.6rem;
+}

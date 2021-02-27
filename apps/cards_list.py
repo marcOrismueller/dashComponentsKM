@@ -9,6 +9,7 @@ import json
 from app import app
 import pandas as pd
 from apps.fnc_container import helpers as hlp
+from datetime import datetime
 
 def show_items(listgroup_values, mainCallBack=True):
     if mainCallBack:
@@ -32,49 +33,62 @@ def show_items(listgroup_values, mainCallBack=True):
 
 
 def show_cards(cards_values_df):
+    def build_card_header(card_id): 
+        card = cards_values_df.loc[cards_values_df['type_id_int'] == card_id]
+        card_time = f'{card["card_time"].values[0]}'
+        card_phrase = f'{card["card_phrase"].values[0]}'
+        card_index = f'{card["card_index"].values[0]}'
+        header = html.Div([
+            html.P(card_index), 
+            html.P(card_phrase), 
+            html.P(card_time), 
+        ], id='card_head')
+
+        return header
 
     cards = html.Div([
-        dbc.Card(id={
-                    'id': 'card',
-                    'index': int(card_id)
-            }, children=[
-            dbc.CardHeader(f"Card {int(card_id)+1}"),
-            dbc.CardBody(
-                children=[
-                    dbc.Checklist(
+        html.Div([
+            dbc.Card(id={
+                        'id': 'card',
+                        'index': int(card_id)
+                }, children=[
+                dbc.CardHeader(build_card_header(card_id)),
+                dbc.CardBody(
+                    children=[
+                        dbc.Checklist(
+                            id={
+                                'id': 'card_value',
+                                'index': int(card_id)
+                            },
+                            options=hlp.create_checkbox_opt(cards_values_df.loc[cards_values_df['type_id_int'] == card_id]),
+                            value=[], 
+                            labelCheckedStyle={
+                                "textDecoration": 'line-through',
+                                },
+                            className='hidden_box',
+                            labelStyle={},
+                        ),
+                    ],
+                    style={'textAlign': 'center', 'paddingRight': '60px'}
+                ),
+
+                dbc.CardFooter([
+                    dbc.Button(
+                        "Subtract",
+                        outline=True,
+                        color="success",
+                        className="mr-1",
                         id={
-                            'id': 'card_value',
+                            'id': 'commit_substraction_btn',
                             'index': int(card_id)
                         },
-                        options=hlp.create_checkbox_opt(cards_values_df.loc[cards_values_df['type_id_int'] == card_id]),
-                        value=[], 
-                        labelCheckedStyle={
-                            "textDecoration": 'line-through',
-                            },
-                        className='hidden_box',
-                        labelStyle={},
-                    ),
-                ],
-                style={'textAlign': 'center', 'paddingRight': '60px'}
-            ),
-
-            dbc.CardFooter([
-                dbc.Button(
-                    "Subtract",
-                    outline=True,
-                    color="success",
-                    className="mr-1",
-                    id={
-                        'id': 'commit_substraction_btn',
-                        'index': int(card_id)
-                    },
-                    disabled=True
-                )],
-                style={'textAlign': 'center'})
-        ], style={'marginTop': '10px', 'marginRight': '10px', 'whiteSpace': 'pre-line'})
-
+                        disabled=True
+                    )],
+                    style={'textAlign': 'center'})
+            ], style={'marginTop': '10px', 'marginRight': '10px', 'whiteSpace': 'pre-line'}, className='card')
+        ], className='')
         for card_id in cards_values_df['type_id_int'].drop_duplicates()
-    ])
+    ], className= 'container')
 
     return cards
 
@@ -82,8 +96,8 @@ def show_cards(cards_values_df):
 layout = html.Div(
         id='page1', 
         children = [
-            dbc.Row([
-                dbc.Col( 
+            html.Div([
+                html.Div( 
                     children=[
                         html.Content(
                             id='items', 
@@ -92,17 +106,17 @@ layout = html.Div(
                             ]
                         )
                     ], 
-                    width=3
+                    className='two columns'
                 ),
 
-                dbc.Col([
-                    dbc.Container([
+                html.Div([
+                    html.Div([
                         dbc.CardColumns(id='show_cards')
                     ], style={'marginRight': '15px'})
-                ])
-            ]),
-            dbc.Row(id= 'go_to_details', children=[
-                dbc.Col(
+                ], className='nine columns')
+            ], className='row flex-display'),
+            html.Div(id= 'go_to_details', children=[
+                html.Div(
                     dcc.Link(
                         dbc.Button(
                             "Show Details", outline=True, color="secondary", className="mr-1"
@@ -202,7 +216,7 @@ def subtract_handler(n_clicks, input_data, historical_subtraction, card_style, c
     card_style[clicked_btn_index]['pointer-events'] = 'none'
     card_style[clicked_btn_index]['visibility'] = 'hidden'
     card_style[clicked_btn_index]['opacity'] = '0'
-    card_style[clicked_btn_index]['transition']= 'visibility 8s, opacity 8s linear'
+    #card_style[clicked_btn_index]['transition']= 'visibility 8s, opacity 8s linear'
 
     return historical_subtraction, display_details_btn, card_style
 

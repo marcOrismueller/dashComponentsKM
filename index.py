@@ -1,16 +1,18 @@
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
-
 from app import app
 from apps import load_data, cards_list, details
+from apps.fnc_container import components
 
 server = app.server
+
 
 app.layout = html.Div([
     dcc.Store(id='input_data', storage_type='session'), 
     dcc.Store(id='historical_subtraction'),
     dcc.Location(id='url', refresh=False),
+    components.navbar(),
     html.Div(
         id='page-content', 
     )
@@ -19,18 +21,18 @@ app.layout = html.Div([
 # Update the index
 @app.callback(
     Output('page-content', 'children'),
+    Output('navbar-collapse', 'children'),
     Input('url', 'pathname'), 
-    State('historical_subtraction', 'data'), 
 )
-def display_page(pathname, historical_subtraction):
+def display_page(pathname):
     if pathname == '/':
-        return load_data.layout
+        return load_data.layout, ''
     elif pathname == '/items-selection':
-        return cards_list.layout
+        return cards_list.layout, ''
     elif pathname == '/subtraction-details':
-        return details.build_page_2(historical_subtraction)
+        return details.build_page_2(), components.build_a_link()
     else:
-        return dcc.H3('404 "URL not found"')
+        return html.H3('404 "URL not found"'), ''
     # You could also return a 404 "URL not found" page here
 
 if __name__ == '__main__':

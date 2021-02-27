@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from datetime import datetime
+import re
 
 
 def divide_chunks(l, n):
@@ -11,15 +13,6 @@ def create_checkbox_opt(b):
     options = []
     for i, opt in b.iterrows():
         options.append({"label": opt['type'], "value": opt['opt_id']})
-    # if len(b.strip().split()) > 2:
-    #     new_list = divide_chunks(b.strip().split(), 2)
-    #     for x, item in enumerate(new_list):
-    #         options.append(
-    #             {"label": f'{" ".join(item)}', "value": x}
-    #         )
-    #     return options
-
-    #options.append({"label": f"{b['quantity']} {b['type']}", "value": 0}) 
     return options
 
 
@@ -123,40 +116,90 @@ def commit_subtraction_v2(clicked_btn_index, cards_values_all, cards_subtraction
                 cards_subtraction_details = cards_subtraction_details.append({
                         'type_id_int': int(clicked_btn_index), 
                         'type': card_val['type'],
+                        'type_only': card_val['type_only'],
                         'total_quantity': int(card_val['quantity']),
                         'type_id_str': card_val['type_id_str'],
-                        'opt_id': int(card_val['opt_id'])
+                        'opt_id': int(card_val['opt_id']),
+                        'card_datetime': card_val['card_datetime'], 
+                        'card_date': card_val['card_date'],
+                        'card_time': card_val['card_time'],
+                        'card_phrase': card_val['card_phrase'],
+                        'card_index': card_val['card_index'], 
+                        
                     }, ignore_index=True)
             else: 
                 cards_subtraction_details['total_quantity'] = cards_subtraction_details.apply(lambda row: edit_total_quantity(row, card_val), axis=1)
             
     return cards_subtraction_details.to_dict('records')
 
+def get_tot_quantity(item):
+    return f'{item["total_quantity"]} {item["type_only"]}'
 
-# def commit_subtraction(clicked_btn_index, cards_values_all, cards_subtraction_details):
 
-#     if cards_subtraction_details:
-#         cards_subtraction_details = pd.DataFrame.from_dict(cards_subtraction_details)
-#     else: 
-#         cards_subtraction_details = pd.DataFrame(columns=['type_id_int', 'type', 'total_quantity', 'type_id_str'])
-           
-#     cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
-#     card_val = cards_vals_df.loc[cards_vals_df['type_id_int'] == clicked_btn_index]
 
-#     def edit_total_quantity(row):
-#         if row['type_id_int'] == int(clicked_btn_index): 
-#             return int(card_val['quantity']) + int(row['total_quantity'])
-#         return int(row['total_quantity'])
-    
-#     if not card_val.empty:
-#         if int(clicked_btn_index) not in list(cards_subtraction_details['type_id_int']):
-#             cards_subtraction_details = cards_subtraction_details.append({
-#                     'type_id_int': int(clicked_btn_index), 
-#                     'type': card_val['type'].values[0],
-#                     'total_quantity': int(card_val['quantity'].values[0]),
-#                     'type_id_str': card_val['type_id_str'].values[0]
-#                 }, ignore_index=True)
-#         else: 
-#             cards_subtraction_details['total_quantity'] = cards_subtraction_details.apply(edit_total_quantity, axis=1)
-            
-#     return cards_subtraction_details.to_dict('records')
+def process_input_listgroup(data_elements):
+    quantity = {}
+    cards_vals = {}
+    for i, d in enumerate(data_elements):
+        # split string after every number or '+' operation
+        cards_vals[i] = []
+        d = re.split(r'\s?(\d+|\+)\s?', d)
+        # add up all elements separately
+        for idx, value in enumerate(d):
+            if value.isdigit() or value == '+':
+                if value == '+':
+                    count = 1
+                else:
+                    count = int(value)
+
+                data = d[idx + 1]
+
+                cards_vals[i].append({
+                    f'{data}': count
+                })
+
+                quantity[data] = quantity.get(data, 0) + count
+
+    df = pd.DataFrame()
+    df['type'] = list(quantity.keys())
+    df['quantity'] = list(quantity.values())
+    df['type_id_str'] = df['type'].str.lower().str.replace(' ', '_')
+    df['type_id_int'] = list(range(len(df['type'])))
+
+    # If the select any cards selected field = 1
+    return df
+
+
+def process_input_cards(data_elements, cards_headers):
+    cards_vals = pd.DataFrame()
+    for i, (d, header) in enumerate(zip(data_elements, cards_headers)):
+        # split string after every number or '+' operation
+        d = re.split(r'\s?(\d+|\+)\s?', d)
+        # add up all elements separately
+        opt_id = 0
+        for idx, value in enumerate(d):
+            if value.isdigit() or value == '+':
+                if value == '+':
+                    count = 1
+                else:
+                    count = int(value)
+
+                data = d[idx + 1]
+
+                cards_vals = cards_vals.append({
+                    'type': f'{value} {data}',
+                    'type_only': data,
+                    'quantity': count,
+                    'type_id_str': data.lower().strip().replace(' ', '_'),
+                    'type_id_int': int(i),
+                    'opt_id': int(opt_id),
+                    'card_datetime': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M'),
+                    'card_date': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M').date(),
+                    'card_time': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M').time(),
+                    'card_phrase': ' '.join(header.split()[2:-1]),
+                    'card_index': int(header.split()[-1])
+                }, ignore_index=True)
+                opt_id += 1
+
+    # If the select any cards selected field = 1
+    return cards_vals

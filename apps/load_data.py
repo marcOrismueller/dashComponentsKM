@@ -2,84 +2,39 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 from dash.dependencies import Output, Input, State
-import re
 from dash.exceptions import PreventUpdate
-import pandas as pd
 from app import app
+import locale
+from apps.fnc_container import helpers
 
 
-def process_input_listgroup(data_elements):
-    quantity = {}
-    cards_vals = {}
-    for i, d in enumerate(data_elements):
-        # split string after every number or '+' operation
-        cards_vals[i] = []
-        d = re.split(r'\s?(\d+|\+)\s?', d)
-        # add up all elements separately
-        for idx, value in enumerate(d):
-            if value.isdigit() or value == '+':
-                if value == '+':
-                    count = 1
-                else:
-                    count = int(value)
-                
-                data = d[idx + 1]
-                
-                cards_vals[i].append({
-                    f'{data}': count
-                })
-                
-                quantity[data] = quantity.get(data, 0) + count
-    
-    df = pd.DataFrame()
-    df['type'] = list(quantity.keys())
-    df['quantity'] = list(quantity.values())
-    df['type_id_str'] =  df['type'].str.lower().str.replace(' ', '_')
-    df['type_id_int'] =  list(range(len(df['type'])))
+locale.setlocale(locale.LC_ALL, 'deu_deu')
 
-    # If the select any cards selected field = 1
-    return df
-
-
-def process_input_cards(data_elements):
-    cards_vals = pd.DataFrame()
-    for i, d in enumerate(data_elements):
-        # split string after every number or '+' operation
-        d = re.split(r'\s?(\d+|\+)\s?', d)
-        # add up all elements separately
-        opt_id = 0
-        for idx, value in enumerate(d):
-            if value.isdigit() or value == '+':
-                if value == '+':
-                    count = 1
-                else:
-                    count = int(value)
-                
-                data = d[idx + 1]
-                
-                cards_vals = cards_vals.append({
-                        'type': f'{value} {data}', 
-                        'quantity': count,
-                        'type_id_str': data.lower().strip().replace(' ', '_'), 
-                        'type_id_int': int(i),
-                        'opt_id': int(opt_id)
-                    }, ignore_index=True)
-                opt_id += 1
-
-    # If the select any cards selected field = 1
-    return cards_vals
-
+input_data = ['1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ',
+              '1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ']
+cards_headers = ['08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 16:19 Hypersoft Technik 100', '09-Dez-20 11:36 Hypersoft Technik 100', '09-Dez-20 11:38 Hypersoft Technik 100', '09-Dez-20 11:39 Hypersoft Technik 100', '08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 16:19 Hypersoft Technik 100',
+                 '09-Dez-20 11:36 Hypersoft Technik 100', '09-Dez-20 11:38 Hypersoft Technik 100', '09-Dez-20 11:39 Hypersoft Technik 100']
 
 layout = html.Div(
     dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.P('List ELements'),
+            ], width={"size": 6, "offset": 3})
+        ]),
         dbc.Row([
             dbc.Col([
                 dbc.Textarea(
                     className="mb-3",
                     placeholder="List_2 (ListGroup elements)",
                     id='listgroup_values',
-                    value="""['1 Pink Persia Poutine + auf Knoblauchfritten', '1 Portion Hausfritten', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten', '2 Portion Knoblauchfritten 3 Portion Se Fritten', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten', '1 Tijuana Street Fries + auf Knoblauchfritten']"""
+                    value=str(input_data)
                 )
+            ], width={"size": 6, "offset": 3})
+        ]),
+        dbc.Row([
+            dbc.Col([
+                html.P('Cards ELements'),
             ], width={"size": 6, "offset": 3})
         ]),
         dbc.Row([
@@ -88,7 +43,22 @@ layout = html.Div(
                     className="mb-3",
                     placeholder="List_1 (Cards elements)",
                     id='cards_values',
-                    value="""['1 Pink Persia Poutine + auf Knoblauchfritten', '1 Portion Hausfritten', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten', '2 Portion Knoblauchfritten 3 Portion Se Fritten', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten', '1 Tijuana Street Fries + auf Knoblauchfritten']"""
+                    value=str(input_data)
+                ),
+            ], width={"size": 6, "offset": 3})
+        ], style={'alignItems': 'center'}),
+        dbc.Row([
+            dbc.Col([
+                html.P('Cards Hearders'),
+            ], width={"size": 6, "offset": 3})
+        ], style={'marginBottom': '0px', 'paddingBottom': '0px'}),
+        dbc.Row([
+            dbc.Col([
+                dbc.Textarea(
+                    className="mb-3",
+                    placeholder="List_1 (Cards elements)",
+                    id='cards_headers',
+                    value=str(cards_headers)
                 ),
             ], width={"size": 6, "offset": 3})
         ], style={'alignItems': 'center'}),
@@ -112,17 +82,24 @@ layout = html.Div(
     Input('load_btn', 'n_clicks'),
     State('listgroup_values', 'value'),
     State('cards_values', 'value'),
+    State('cards_headers', 'value')
 )
-def upload_data(n_clicks, listgroup_values, cards_values):
-    if not n_clicks: 
+def upload_data(n_clicks, listgroup_values, cards_values, cards_headers):
+    if not n_clicks:
         raise PreventUpdate
 
     if n_clicks:
-        listgroup_values = [item.replace("'", '').strip() for item in listgroup_values.strip('][').split(',')]
-        cards_values = [item.replace("'", '').strip() for item in cards_values.strip('][').split(',')]
-        if listgroup_values and cards_values:
-            new_listgroup_values = process_input_listgroup(listgroup_values)
-            new_cards_values = process_input_cards(cards_values)
+        listgroup_values = [item.replace("'", '').strip(
+        ) for item in listgroup_values.strip('][').split(',')]
+        cards_values = [item.replace("'", '').strip()
+                        for item in cards_values.strip('][').split(',')]
+        cards_headers = [item.replace("'", '').strip()
+                         for item in cards_headers.strip('][').split(',')]
+        if listgroup_values and cards_values and cards_headers:
+            new_listgroup_values = helpers.process_input_listgroup(
+                listgroup_values)
+            new_cards_values = helpers.process_input_cards(
+                cards_values, cards_headers)
             return {
                 'initial': {
                     'listgroup_values': new_listgroup_values.to_dict('records'), 'cards_values': new_cards_values.to_dict('records')
