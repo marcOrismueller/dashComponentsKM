@@ -7,8 +7,10 @@ from app import app
 import locale
 from apps.fnc_container import helpers
 
-
-locale.setlocale(locale.LC_ALL, 'deu_deu')
+# Windows: 
+#locale.setlocale(locale.LC_ALL, 'deu_deu')
+# Ubuntu (Deployement Version): 
+locale.setlocale(locale.LC_ALL, 'de_DE')
 
 input_data = ['1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ',
               '1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ']
