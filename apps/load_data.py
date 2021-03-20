@@ -6,16 +6,35 @@ from dash.exceptions import PreventUpdate
 from app import app
 import locale
 from apps.fnc_container import helpers
+import ast 
 
-# Windows: 
-#locale.setlocale(locale.LC_ALL, 'deu_deu')
-# Ubuntu (Deployement Version): 
-locale.setlocale(locale.LC_ALL, 'deu_deu.UTF-8')
+# Windows:
+locale.setlocale(locale.LC_ALL, 'deu_deu')
+# Ubuntu (Deployement Version):
+#locale.setlocale(locale.LC_ALL, 'deu_deu.UTF-8')
 
-input_data = ['1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ',
-              '1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ']
-cards_headers = ['08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 16:19 Hypersoft Technik 100', '09-Dez-20 11:36 Hypersoft Technik 100', '09-Dez-20 11:38 Hypersoft Technik 100', '09-Dez-20 11:39 Hypersoft Technik 100', '08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 15:40 Hypersoft Technik 100', '08-Dez-20 16:19 Hypersoft Technik 100',
-                 '09-Dez-20 11:36 Hypersoft Technik 100', '09-Dez-20 11:38 Hypersoft Technik 100', '09-Dez-20 11:39 Hypersoft Technik 100']
+# input_data = ['1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ',
+#               '1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ']
+# cards_headers = ['08-Dez-20 15:40 Hypersoft Technik 1 100', '08-Dez-20 15:40 Hypersoft Technik 2 102', '10-Dez-20 16:19 Hypersoft Technik 102', '10-Dez-20 11:36 Hypersoft Technik 3 100', '10-Dez-20 11:38 Hypersoft Technik 4 101', '11-Dez-20 11:39 Hypersoft Technik 5 104', '08-Dez-20 15:40 Hypersoft Technik 5 100', '13-Dez-20 15:40 Hypersoft Technik 4 108', '11-Dez-20 16:19 Hypersoft Technik 2 100',
+#                  '15-Dez-20 11:36 Hypersoft Technik 2 106', '09-Dez-20 11:38 Hypersoft Technik 3 106', '15-Dez-20 11:39 Hypersoft Technik 2 100']
+
+
+input_data = [
+    '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
+    '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
+    '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
+    '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
+    '3. Gang 1x Burger Royal 21.00 # Bratkartoffel # extra Champignon + 1.50 1x Filet Steak 50.20 # 180 g 37,90 # Medium Rare (50øC) # Bratkartoffeln +4,90 # Kartoffelgratin +4,90 # Pepper Jus +2,50 1x Filet Steak 68.20 # 300 g 57,90 Medium Well (60øC) # Pommes +4,90 # Knoblauchbrot +2,90 # Sauce Bearnaise +2,50',
+]
+
+cards_headers = [
+    '16-Dez-21 13:15 Hypersoft 1 7',
+    '17-Dez-21 14:12 Hypersoft 2 4',
+    '18-Dez-21 13:15 Hypersoft 3 5',
+    '18-Dez-21 13:15 Hypersoft 4 8',
+    '19-Dez-21 13:15 Hypersoft 5 1',
+]
+
 
 layout = html.Div(
     dbc.Container([
@@ -89,18 +108,16 @@ layout = html.Div(
 def upload_data(n_clicks, listgroup_values, cards_values, cards_headers):
     if not n_clicks:
         raise PreventUpdate
-
+    
     if n_clicks:
-        listgroup_values = [item.replace("'", '').strip(
-        ) for item in listgroup_values.strip('][').split(',')]
-        cards_values = [item.replace("'", '').strip()
-                        for item in cards_values.strip('][').split(',')]
-        cards_headers = [item.replace("'", '').strip()
-                         for item in cards_headers.strip('][').split(',')]
+        listgroup_values = ast.literal_eval(listgroup_values)
+        cards_values = ast.literal_eval(cards_values)
+        cards_headers = ast.literal_eval(cards_headers)
+
         if listgroup_values and cards_values and cards_headers:
-            new_listgroup_values = helpers.process_input_listgroup(
+            new_listgroup_values = helpers.process_input_listgroup_v2(
                 listgroup_values)
-            new_cards_values = helpers.process_input_cards(
+            new_cards_values = helpers.process_input_cards_v2(
                 cards_values, cards_headers)
             return {
                 'initial': {

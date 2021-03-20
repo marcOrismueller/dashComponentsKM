@@ -9,8 +9,13 @@ server = app.server
 
 
 app.layout = html.Div([
+    dcc.Store(id='filtred_cards'), 
+    dcc.Store(id='filtred_cards_tmp'), 
     dcc.Store(id='input_data', storage_type='session'), 
     dcc.Store(id='historical_subtraction'),
+    dcc.Store(id='subtract_from_listGrp'),
+    dcc.Store(id='substruct_if_clicked'), 
+    dcc.Store(id='gang_notifier'),
     dcc.Location(id='url', refresh=False),
     components.navbar(),
     html.Div(
@@ -28,7 +33,7 @@ def display_page(pathname):
     if pathname == '/':
         return load_data.layout, ''
     elif pathname == '/items-selection':
-        return cards_list.layout, ''
+        return cards_list.layout, components.build_a_link(True)
     elif pathname == '/subtraction-details':
         return details.build_page_2(), components.build_a_link()
     else:
