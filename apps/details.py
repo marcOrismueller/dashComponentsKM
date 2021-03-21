@@ -15,7 +15,7 @@ def build_page_2():
             html.Div(id='mainContainer', children=[
                 html.Div(children=[
                     html.Div(id='cross-filter-options', children=[
-                        html.P('Filter by date range:', className='control_label'),
+                        html.P('Filtern nach Zeitraum:', className='control_label'),
                         html.Div(
                                 dcc.DatePickerRange(
                                     id='date_range_picker',
@@ -27,7 +27,7 @@ def build_page_2():
                                 className='dcc_control'
                         ),
 
-                        html.P('Filter by specific date:', className='control_label'),
+                        html.P('Filtern nach Datum:', className='control_label'),
                         html.Div(
                             dcc.Dropdown(
                                 id='date_picker',
@@ -38,7 +38,7 @@ def build_page_2():
                             className='dcc_control'
                         ),
                         
-                        html.P('Filter by table index:', className='control_label'),
+                        html.P('Filtern nach Tisch:', className='control_label'),
                         html.Div(
                             dcc.Dropdown(
                                 id='card_index',
@@ -49,7 +49,7 @@ def build_page_2():
                             className='dcc_control'
                         ),
 
-                        html.P('Filter by table Gang number:', className='control_label'),
+                        html.P('Filtern nach Gang:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='gang_number',
@@ -60,7 +60,7 @@ def build_page_2():
                                 className='dcc_control'
                             ),
 
-                        html.P('Filter by plate types:', className='control_label'),
+                        html.P('Filtern nach Gericht:', className='control_label'),
                         html.Div(
                             dcc.Dropdown(
                                 id='plate_type',
@@ -71,7 +71,7 @@ def build_page_2():
                             )
                         ),
 
-                        html.P('Filter by Phrase:', className='control_label'),
+                        html.P('Filtern nach Kellner:', className='control_label'),
                         html.Div(
                             dcc.Dropdown(
                                 id='phrase',

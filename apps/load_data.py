@@ -28,11 +28,11 @@ input_data = [
 ]
 
 cards_headers = [
-    '16-Dez-21 13:15 Hypersoft 1 7',
-    '17-Dez-21 14:12 Hypersoft 2 4',
-    '18-Dez-21 13:15 Hypersoft 3 5',
-    '18-Dez-21 13:15 Hypersoft 4 8',
-    '19-Dez-21 13:15 Hypersoft 5 1',
+    '17-Feb-21 13:15 Hypersoft 1 7',
+    '17-Feb-21 14:18 Hypersoft 2 4',
+    '17-Feb-21 13:32 Hypersoft 3 5',
+    '17-Feb-21 13:57 Hypersoft 4 8',
+    '18-Feb-21 00:08 Hypersoft 5 1',
 ]
 
 

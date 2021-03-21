@@ -74,8 +74,17 @@ sidebar = html.Div(
 def build_a_link(test=False):
     if test: 
         btn_link = dbc.Row([
+                html.Div(id= 'go_to_details', children=[
+                        html.Div(
+                            dcc.Link(
+                                dbc.Button(
+                                    "Detailseite", outline=True, color="secondary", className="mr-1"
+                                ),
+                                href='/subtraction-details',
+                                id='details_btn',
+                        ))
+                    ], style={'display': 'none'}),
                 dbc.Button("Filter", outline=True, color="secondary", className="mr-1", id="btn_filter_modal"), 
-                html.I(className='fa-database', **{'aria-hidden': 'true'}, children=None),
             ], 
             no_gutters=True,
             className="ml-auto flex-nowrap mt-3 mt-md-0",
@@ -86,7 +95,7 @@ def build_a_link(test=False):
         dbc.Col(
             html.A(
                 dbc.Button(
-                    'Control Panel',
+                    'Bonleiste',
                     outline=True,
                     color="light",
                     className="mr-1", 
@@ -99,7 +108,7 @@ def build_a_link(test=False):
         dbc.Col(
             html.A(
                 dbc.Button(
-                    'Data Board',
+                    'Datenseite',
                     outline=True,
                     color="light",
                     className="mr-1", 
@@ -122,8 +131,8 @@ def navbar():
             html.A(
                 dbc.Row(
                     [
-                        dbc.Col(html.Img(src=app.get_asset_url("logo.png"), height="50px", id='logo')),
-                        #dbc.Col(dbc.NavbarBrand("SaCoSo KM", className="ml-2")),
+                        # dbc.Col(html.Img(src=app.get_asset_url("logo.png"), height="50px", id='logo')),
+                        dbc.Col(dbc.NavbarBrand("SaCoSo KM", className="ml-2")),
                     ],
                     align="center",
                     no_gutters=True,
@@ -246,11 +255,11 @@ def get_filter_slidebar():
 
 filter_modal = dbc.Modal(
             [
-                dbc.ModalHeader("Sort Cards"),
+                dbc.ModalHeader("Filter"),
                 dbc.ModalBody(
                     html.Div(
                         children=[
-                            html.P('Filter by specific date:', className='control_label'),
+                            html.P('Filtern nach Datum:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='date_picker_1',
@@ -261,7 +270,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ), 
 
-                            html.P('Filter by specific time:', className='control_label'),
+                            html.P('Filtern nach Uhrzeit:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='datetime_picker_1',
@@ -272,7 +281,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ), 
 
-                            html.P('Filter by table index:', className='control_label'),
+                            html.P('Filtern nach Tisch:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='card_index_1',
@@ -283,7 +292,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ),
 
-                            html.P('Filter by table Gang number:', className='control_label'),
+                            html.P('Filtern nach Gang:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='gang_number_1',
@@ -294,7 +303,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ),
 
-                            html.P('Filter by plate types:', className='control_label'),
+                            html.P('Filtern nach Gericht:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='plate_type_1',
@@ -305,7 +314,7 @@ filter_modal = dbc.Modal(
                                 )
                             ),
 
-                            html.P('Filter by Phrase:', className='control_label'),
+                            html.P('Filtern nach Kellner:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='phrase_1',
@@ -316,13 +325,13 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ),
 
-                            html.P('Sort by:', className='control_label'),
+                            html.P('Sortieren nach:', className='control_label'),
                             html.Div(
                                 dbc.RadioItems(
                                     options=[
-                                        {"label": "Date", "value": 'card_date'},
-                                        {"label": "Phrase", "value": 'card_phrase'},
-                                        {"label": 'Card Number', 'value': 'card_index'}
+                                        {"label": "Datum", "value": 'card_date'},
+                                        {"label": "Kellner", "value": 'card_phrase'},
+                                        {"label": 'Tisch', 'value': 'card_index'}
                                     ],
                                     value='card_index',
                                     id="sort_by",
@@ -332,12 +341,12 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ),
 
-                            html.P('How:', className='control_label'),
+                            html.P('Wie:', className='control_label'),
                             html.Div(
                                 dbc.RadioItems(
                                     options=[
-                                        {"label": "Asc", "value": 1},
-                                        {"label": "Desc", "value": 0},
+                                        {"label": "Aufsteigend", "value": 1},
+                                        {"label": "Absteigend", "value": 0},
                                     ],
                                     value=1,
                                     id="sort_how",
@@ -351,7 +360,7 @@ filter_modal = dbc.Modal(
                 ),
                 dbc.ModalFooter(
                     dbc.Button(
-                        "Process", id="apply_filter", className="ml-auto"
+                        "Filtern", id="apply_filter", className="ml-auto"
                     )
                 ),
             ],

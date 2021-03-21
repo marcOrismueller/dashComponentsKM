@@ -1,2 +1,6 @@
-__pycache__
-backup.py
+# __pycache__
+# backup.py
+venv
+*.pyc
+.DS_Store
+.env
