@@ -13,9 +13,9 @@ app.layout = html.Div([
     dcc.Store(id='filtred_cards_tmp'), 
     dcc.Store(id='input_data', storage_type='session'), 
     dcc.Store(id='historical_subtraction'),
-    dcc.Store(id='subtract_from_listGrp'),
-    dcc.Store(id='substruct_if_clicked'), 
+    dcc.Store(id='substruct_items'),
     dcc.Store(id='gang_notifier'),
+    dcc.Store(id='isFiltered'),
     dcc.Location(id='url', refresh=False),
     components.navbar(),
     html.Div(

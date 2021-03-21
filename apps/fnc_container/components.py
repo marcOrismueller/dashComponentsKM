@@ -74,8 +74,17 @@ sidebar = html.Div(
 def build_a_link(test=False):
     if test: 
         btn_link = dbc.Row([
+                html.Div(id= 'go_to_details', children=[
+                        html.Div(
+                            dcc.Link(
+                                dbc.Button(
+                                    "Show Details", outline=True, color="secondary", className="mr-1"
+                                ),
+                                href='/subtraction-details',
+                                id='details_btn',
+                        ))
+                    ], style={'display': 'none'}),
                 dbc.Button("Filter", outline=True, color="secondary", className="mr-1", id="btn_filter_modal"), 
-                html.I(className='fa-database', **{'aria-hidden': 'true'}, children=None),
             ], 
             no_gutters=True,
             className="ml-auto flex-nowrap mt-3 mt-md-0",

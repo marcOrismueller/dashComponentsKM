@@ -183,6 +183,11 @@ label{
   color: rgb(206, 203, 203);
 }
 
+#details_btn{
+  color: rgb(206, 203, 203);
+  margin-right: 15px;
+}
+
 #card_head{
   flex-wrap: wrap;
 }
@@ -210,9 +215,32 @@ label[for*='gang_']{
   font-size: 20px;
 }
 
+.disabled{
+  pointer-events:none;
+  opacity: 0.5;
+}
+
+.enable_card{
+  pointer-events:visible;
+  opacity: 1;
+}
+
+.destroy_card{
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.active_card{
+  border: 3px #0dc400 solid;
+}
+
+.card{
+
+}
+
 button[id*='{"id":"commit_substraction_btn","index":']{
   padding: 0 50px 0 50px;
-
 }
 
 
