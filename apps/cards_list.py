@@ -26,7 +26,7 @@ def show_items(listgroup_values, mainCallBack=True):
                 ],
             )
             for i, x in listgroup_values.iterrows()
-            if x['quantity'] > 0
+            if x['production'] > 0 or x['quantity'] > 0
         ]
 
     return dbc.ListGroup(id='show_list', children=[
@@ -41,7 +41,7 @@ def show_items(listgroup_values, mainCallBack=True):
             ]
         )
         for i, x in listgroup_values.iterrows()
-        if x['quantity'] > 0
+        if x['production'] > 0 or x['quantity'] > 0
     ])
 
 
@@ -150,7 +150,7 @@ layout = html.Div(
     Output('show_cards', 'children'),
     Output('gang_notifier', 'data'),
     Input('input_data', 'data'),
-    Input('filtred_cards', 'data')
+    Input('filtred_cards', 'data'), 
 )
 def show_page(input_data, filtred_cards):  # , filtred_cards
     context = dash.callback_context.triggered
@@ -176,6 +176,36 @@ def show_page(input_data, filtred_cards):  # , filtred_cards
         gang_notifier[f'{card_id}_{i}'] = []
     return show_items(listgroup_values_df, True), show_cards(cards_values_df), gang_notifier
 
+@app.callback(
+    Output('start_data_holder', 'data'),
+    Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
+    State('input_data', 'data'),
+    State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
+    State('start_data_holder', 'data'),
+    prevent_initial_call=True
+)
+def start_btn_handler(substraction_btn, input_data, substraction_btn_status, start_data_holder):
+    start_data_holder = start_data_holder or input_data
+    context = dash.callback_context.triggered[0]
+    #print(hlp.subtract_selected_v3(input_data, start_data_holder))
+    if context:
+        if context['prop_id'] == '.' or not input_data:
+            raise PreventUpdate
+        
+        context_dict = json.loads(dash.callback_context.triggered[0]['prop_id'].split('.')[0])
+        cards = pd.DataFrame.from_dict(start_data_holder['initial']['cards_values'])
+        lists = pd.DataFrame.from_dict(start_data_holder['initial']['listgroup_values'])
+        if context_dict['id'] == 'commit_substraction_btn' and context['value'] is not None:
+            if substraction_btn_status[int(context_dict['index'].split('_')[1])] == 'Start':
+                start_data_holder['initial']['listgroup_values'] = hlp.substruct_all_card_items(
+                    cards,
+                    lists, 
+                    context_dict['index']
+                )
+            else: 
+                raise PreventUpdate
+    return start_data_holder
+
 
 @app.callback(
     Output('substruct_items', 'data'),
@@ -195,7 +225,6 @@ def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_it
     isFiltered = isFiltered or {'filtred': False}
     context = dash.callback_context.triggered[0]
     substruct_items = substruct_items or gang_notifier
-
     if not set(substruct_items.keys()) == set(gang_notifier.keys()):
         substruct_items = gang_notifier
         input_data = filtred_cards
@@ -226,8 +255,20 @@ def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_it
             substruct_items[str(context_dict['index'])] = context['value']
             new_values = substruct_items[str(context_dict['index'])][:]
 
-        substruct_items = hlp.gang_checker(
-            substruct_items, data, old_values, new_values, context_dict)
+        # elif context_dict['id'] == 'commit_substraction_btn' and context['value'] is not None:
+        #     if substraction_btn_status[int(context_dict['index'].split('_')[1])] == 'Start':
+        #         start_data_holder = hlp.substruct_all_card_items(
+        #             data,
+        #             start_data_holder, 
+        #             context_dict['index']
+        #         )
+        #     else: 
+        #         raise PreventUpdate
+                
+        if context_dict['id'] in ['card_value', 'lst_item_btn']:
+            substruct_items = hlp.gang_checker(
+                substruct_items, data, old_values, new_values, context_dict)
+
     return substruct_items, isFiltered
 
 
@@ -236,24 +277,31 @@ def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_it
     Output('items', 'children'),
     Output({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
     Input('substruct_items', 'data'),
+    Input('start_data_holder', 'data'),
     State({'id': 'card_value', 'index': ALL}, 'value'),
-    State('input_data', 'data'),
+    #State('input_data', 'data'),
     State({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
     prevent_initial_call=True
 )
-def update_checklist_options_vals(substruct_items, old_vals, input_data, btns):
+def update_checklist_options_vals(substruct_items, start_data_holder, old_vals, btns):
     if not substruct_items:
         raise PreventUpdate
+    
+    if len(dash.callback_context.triggered) > 1: 
+        raise PreventUpdate
+    
+    # Update the left-listgroup
+    new_items = show_items(hlp.subtract_selected_v3(start_data_holder, substruct_items), False)
 
+    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    if context == 'start_data_holder':
+        return old_vals, new_items, btns
+    
     # Get the new vals (cross out the cards items if left listgroup item clicked)
     new_vals = hlp.get_opts_vals(substruct_items, old_vals)
-
-    # Update the left-listgroup
-    new_items = show_items(hlp.subtract_selected_v3(
-        input_data, substruct_items), False)
-
+    
     # enable/active the btn if all card items is selected
-    data = pd.DataFrame.from_dict(input_data['initial']['cards_values'])
+    data = pd.DataFrame.from_dict(start_data_holder['initial']['cards_values'])
     btns = hlp.check_if_selected_all(data, substruct_items, btns)
 
     return new_vals, new_items, btns

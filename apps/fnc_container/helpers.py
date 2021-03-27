@@ -22,7 +22,7 @@ def type_line_break(product_type, btns=False, quantity=True):
         if quantity:
             return [
                 html.B(l)
-                for l in f"{product_type['quantity']} {product_type['type']}\n{product_type['additionalInfo']}".split('\n')
+                for l in f"{product_type['production']}/{product_type['quantity']} {product_type['type']}\n{product_type['additionalInfo']}".split('\n')
             ]
         else:
             return [
@@ -113,10 +113,10 @@ def subtract_selected_v3(input_data, substruct_if_clicked):
                                                == selected_row['type_id_str']]
             if not available_items.empty:
                 mask = (listgroup_df['type_id_str'] == selected_row['type_id_str']) & (
-                    listgroup_df['quantity'] >= selected_row['quantity'])
+                    listgroup_df['production'] >= selected_row['quantity'])
                 idx = mask.idxmax() if mask.any() else np.repeat(False, len(listgroup_df))
-                listgroup_df.loc[idx, 'quantity'] = listgroup_df.loc[idx,
-                                                                     'quantity'] - selected_row['quantity']
+                #listgroup_df.loc[idx, 'quantity'] = listgroup_df.loc[idx, 'quantity'] - selected_row['quantity']
+                listgroup_df.loc[idx, 'production'] = listgroup_df.loc[idx, 'production'] - selected_row['quantity']
             else:
                 print(
                     f'disable this item: {selected_row["type_id_str"].values[0]} (not item available or quantity > stock)')
@@ -343,6 +343,7 @@ def process_input_listgroup_v2(card_body_input):
         'additionalInfo': 'last'
     }).reset_index()
     df['type_id_int'] = list(range(len(df['type'])))
+    df['production'] = 0
     return df
 
 
@@ -579,6 +580,21 @@ def subtract(cards, substruct_if_clicked, context_dict, card_body):
 
     return substruct_if_clicked
 
+def update_val(row, item):
+    if row['type_id_str'] == item['type_id_str']:
+        row['production'] += item['quantity']
+        row['quantity'] -= item['quantity']
+    return row
+
+def substruct_all_card_items(cards, lists, card_idx):
+    card_item = cards.loc[cards['type_id_int']==int(card_idx.split('_')[1])]
+    for i, item in card_item.iterrows():
+        lists = lists.apply(lambda row: update_val(row, item), axis=1)
+    #substruct_items[card_idx] = card_item['type_id_str'].tolist()
+    #return substruct_items
+
+    return lists.to_dict('records')
+
 
 def get_opts_vals(substruct_if_clicked, vals):
     for card in substruct_if_clicked:
@@ -615,3 +631,5 @@ def check_if_selected_all(cards, substruct_if_clicked, disabled):
             disabled[int(card.split('_')[1])] = True
 
     return disabled
+
+

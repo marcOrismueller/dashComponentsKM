@@ -16,6 +16,7 @@ app.layout = html.Div([
     dcc.Store(id='substruct_items'),
     dcc.Store(id='gang_notifier'),
     dcc.Store(id='isFiltered'),
+    dcc.Store(id='start_data_holder'),
     dcc.Location(id='url', refresh=False),
     components.navbar(),
     html.Div(
