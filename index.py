@@ -1,20 +1,23 @@
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
-
 from app import app
-from apps import app0, app1, app2
+from apps import load_data, cards_list, details
+from apps.fnc_container import components
 
+server = app.server
 
 
 app.layout = html.Div([
-    dcc.Store(id='input_data'),
-    dcc.Store(id='latest_update'),
-    dcc.Store(id='test_store'),
-    dcc.Store(id='initial_data'),
-    dcc.Store(id='items_state'),
-    dcc.Store(id='memory_tmp'),
+    dcc.Store(id='filtred_cards'), 
+    dcc.Store(id='filtred_cards_tmp'), 
+    dcc.Store(id='input_data', storage_type='session'), 
+    dcc.Store(id='historical_subtraction'),
+    dcc.Store(id='substruct_items'),
+    dcc.Store(id='gang_notifier'),
+    dcc.Store(id='isFiltered'),
     dcc.Location(id='url', refresh=False),
+    components.navbar(),
     html.Div(
         id='page-content', 
     )
@@ -23,16 +26,18 @@ app.layout = html.Div([
 # Update the index
 @app.callback(
     Output('page-content', 'children'),
+    Output('navbar-collapse', 'children'),
     Input('url', 'pathname'), 
-    State('items_state', 'data'), 
 )
-def display_page(pathname, items_state):
-    if pathname == '/pie':
-        return app2.build_page_2(items_state)
-    elif pathname == '/load-data':
-        return app0.layout
+def display_page(pathname):
+    if pathname == '/':
+        return load_data.layout, ''
+    elif pathname == '/items-selection':
+        return cards_list.layout, components.build_a_link(True)
+    elif pathname == '/subtraction-details':
+        return details.build_page_2(), components.build_a_link()
     else:
-        return app1.layout
+        return html.H3('404 "URL not found"'), ''
     # You could also return a 404 "URL not found" page here
 
 if __name__ == '__main__':
