@@ -205,8 +205,10 @@ def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_it
         input_data = filtred_cards
 
     if context:
-        context_dict = json.loads(
-            dash.callback_context.triggered[0]['prop_id'].split('.')[0])
+        if context['prop_id'] == '.' or not input_data:
+            raise PreventUpdate
+
+        context_dict = json.loads(dash.callback_context.triggered[0]['prop_id'].split('.')[0])
         data = pd.DataFrame.from_dict(input_data['initial']['cards_values'])
         old_values = []
         new_values = []
@@ -226,7 +228,6 @@ def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_it
 
         substruct_items = hlp.gang_checker(
             substruct_items, data, old_values, new_values, context_dict)
-
     return substruct_items, isFiltered
 
 
@@ -273,8 +274,9 @@ def update_checklist_options_vals(substruct_items, old_vals, input_data, btns):
     State({'id': 'commit_substraction_btn', 'index': ALL}, 'color'),
     State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
     State({'id': 'card_value', 'index': ALL}, 'value'),
+    State('substruct_items', 'data')
 )
-def subtract_handler(n_clicks, input_data, historical_subtraction, card_body_style, card_style, button_color_status, button_children_status, card_value):
+def subtract_handler(n_clicks, input_data, historical_subtraction, card_body_style, card_style, button_color_status, button_children_status, card_value, substruct_items):
     if not [click for click in n_clicks if click] or not input_data:
         raise PreventUpdate
     historical_subtraction = historical_subtraction or {}
@@ -293,16 +295,14 @@ def subtract_handler(n_clicks, input_data, historical_subtraction, card_body_sty
         card_body_style[int(clicked_btn_index.split('_')[1])] = 'enable_card'
     else:
         cards_values_all = input_data['initial']['cards_values']
-        cards_subtraction_details = historical_subtraction.get(
-            'cards_subtraction_details', [])
+        cards_subtraction_details = historical_subtraction.get('cards_subtraction_details', [])
         # If nothing selected from the card then prevent destroy card:
         if not card_value[int(clicked_btn_index.split('_')[1])]:
             card_style[int(clicked_btn_index.split('_')[1])] = 'active_card'
         else:
             # Commit the subtraction only if "Stop btn" clicked
             historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction_v2(
-                int(clicked_btn_index.split('_')[
-                    1]), cards_values_all, cards_subtraction_details
+                cards_values_all, cards_subtraction_details, substruct_items
             )
             if historical_subtraction['cards_subtraction_details']:
                 display_details_btn = {
@@ -339,13 +339,12 @@ def toggle_modal(
     if context == 'apply_filter' and context_value:
         df = pd.DataFrame.from_dict(
             filtred_cards_tmp['initial']['cards_values'])
-        sort_by = [sort_by]
+        sort_by = [sort_by] # + ['gang_number']
         ascending = False
         if sort_how == 0:
             ascending = True
 
-        df = df.sort_values(
-            by=sort_by, ascending=ascending).reset_index(drop=True)
+        df = df.sort_values(by=sort_by, ascending=ascending).reset_index(drop=True)
         filtred_cards_tmp['initial']['cards_values'] = df.to_dict('records')
         return not is_open, filtred_cards_tmp
     return is_open, {}
@@ -477,6 +476,6 @@ def update_result(
             phrase_options = [{'value': x, 'label': x}
                               for x in cards_values['card_phrase'].drop_duplicates()]
 
+    cards_subtr = cards_subtr.sort_values(by=['type_id_int', 'gang_number']).reset_index(drop=True)
     input_data['initial']['cards_values'] = cards_subtr.to_dict('records')
-
     return input_data, date_picker_options, datetime_picker_options, card_index_options, gang_number_options, plate_type_options, phrase_options

@@ -171,11 +171,11 @@ def build_pie(df, values, names, color='type_only', height=350):
 def get_cards_details(df, n_for_each_row=2):
     result = []
     row = []
-    for i, card_index in enumerate(df['card_index'].drop_duplicates(), start=1):           
+    for i, card in df.drop_duplicates(subset=['type_id_int']).iterrows():    
         row.append(
             html.Div(
                 html.Div([
-                    html.H4(f'Tisch {card_index}', style={'marginBottom': '25px', 'textAlign': 'center'}),
+                    html.H4(f'Tisch {card["card_index"]}', style={'marginBottom': '25px', 'textAlign': 'center'}),
                     html.Div([
                         dbc.Row([
                             dbc.Col(
@@ -187,15 +187,15 @@ def get_cards_details(df, n_for_each_row=2):
                                                 children=helpers.get_tot_quantity(row), 
                                                 style={'padding': '8px'}
                                             )
-                                            for j, row in df.loc[df['card_index'] == card_index].iterrows()
+                                            for j, row in df.loc[df['type_id_int'] == card['type_id_int']].iterrows()
 
                                         ])
                                     ]), width=3
                             ),
                             dbc.Col(
                                 html.Div(dcc.Graph(figure=build_pie(
-                                    df.loc[df['card_index'] == card_index], 
-                                    'total_quantity',
+                                    df.loc[df['type_id_int'] == card['type_id_int']], 
+                                    'quantity',
                                     'type_only', 
                                     'type_only', 
                                     250,
@@ -209,7 +209,7 @@ def get_cards_details(df, n_for_each_row=2):
                 style={'width': '48%'}
             )
         )
-        if i%n_for_each_row==0: 
+        if (i+1)%n_for_each_row==0: 
             result.append(
                 html.Div(
                     row, 

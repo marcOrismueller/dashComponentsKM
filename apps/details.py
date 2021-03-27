@@ -184,7 +184,7 @@ def update_result(
         cards_subtr = cards_subtr.query('card_date in @selected_dates')
 
     if selected_cards: 
-        cards_subtr = cards_subtr.query('card_index in @selected_cards')
+        cards_subtr = cards_subtr.query('type_id_int in @selected_cards')
 
     if selected_gang_number: 
         cards_subtr = cards_subtr.query('gang_number in @selected_gang_number')
@@ -201,11 +201,11 @@ def update_result(
         if not selected_cards and not selected_plates and not selected_phrases and context != 'date_range_picker' and not selected_gang_number: 
             date_picker_options = [{'value': x, 'label': x} for x in cards_subtraction['card_date'].drop_duplicates()]
     
-    # card_index: update options
+    # type_id_int: update options
     if context != 'card_index':
-        card_index_options = [{'value': x, 'label': x} for x in cards_subtr['card_index'].drop_duplicates()]
+        card_index_options =[{'value': x['card_index'], 'label': x['type_id_int']} for i, x in cards_subtr.drop_duplicates(subset=['type_id_str']).iterrows()]
         if not selected_dates and not selected_plates and not selected_phrases and context != 'date_range_picker'  and not selected_gang_number: 
-            card_index_options = [{'value': x, 'label': x} for x in cards_subtraction['card_index'].drop_duplicates()]
+            card_index_options = [{'value': x['card_index'], 'label': x['type_id_int']} for i, x in cards_subtraction.drop_duplicates(subset=['type_id_str']).iterrows()]
 
     # gang_number: update options
     if context != 'gang_number':
@@ -227,11 +227,12 @@ def update_result(
 
     # Total Graphs components
     total_subt_df = cards_subtr.groupby('type_id_str').agg({
-        'total_quantity': 'sum',
+        'quantity': 'sum',
         'type': 'last', 
         'type_only': 'last', 
         'additionalInfo': 'last', 
         'gang_number': 'last',
+        'card_index': 'last'
     }).reset_index()
     
     listgroup_children_total = [
@@ -246,18 +247,19 @@ def update_result(
     if not total_subt_df.empty: 
         pie_total_fig = dcc.Graph(figure=components.build_pie(
                                         total_subt_df, 
-                                        'total_quantity',
+                                        'quantity',
                                         'type_only', 
                                         'type_only'
                                     ))
 
     # graphs for each card:
-    cards_subtr_by_index = cards_subtr.groupby(['card_index', 'type_id_str']).agg({
-        'total_quantity': 'sum',
+    cards_subtr_by_index = cards_subtr.groupby(['type_id_int', 'type_id_str']).agg({
+        'quantity': 'sum',
         'type': 'last',
         'type_only': 'last', 
         'additionalInfo': 'last',
         'gang_number': 'last',
+        'card_index': 'last'
     }).reset_index()
 
     pies_for_each_card = None

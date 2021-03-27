@@ -39,14 +39,12 @@ def divide_chunks(l, n):
 
 def create_checkbox_opt(b):
     options = []
-
-    for gang_number in b['gang_number'].drop_duplicates():
+    for gang_number in b.sort_values(by='gang_number')['gang_number'].drop_duplicates():
         for i, opt in b.loc[b['gang_number'] == gang_number].reset_index(drop=True).iterrows():
             if i == 0:
                 options.append(
                     {"label": opt['gang_title'], "value": f'gang_{gang_number}_card_{opt["type_id_int"]}'})
-            options.append({"label": type_line_break(
-                opt), "value": opt['type_id_str']})
+            options.append({"label": type_line_break(opt), "value": opt['type_id_str']})
     return options
 
 
@@ -126,53 +124,23 @@ def subtract_selected_v3(input_data, substruct_if_clicked):
     return listgroup_df
 
 
-def commit_subtraction_v2(clicked_btn_index, cards_values_all, cards_subtraction_details):
-
-    if cards_subtraction_details:
-        cards_subtraction_details = pd.DataFrame.from_dict(
-            cards_subtraction_details)
-    else:
-        cards_subtraction_details = pd.DataFrame(
-            columns=['type_id_int', 'type', 'total_quantity', 'type_id_str', 'opt_id'])
-
+def commit_subtraction_v2(cards_values_all, cards_subtraction_details, substruct_items):
     cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
-    selected_card_val = cards_vals_df.loc[cards_vals_df['type_id_int']
-                                          == clicked_btn_index]
 
-    def edit_total_quantity(row, card_val):
-        if row['type_id_int'] == int(clicked_btn_index) and row['type_id_str'] == card_val['type_id_str']:
-            return int(card_val['quantity']) + int(row['total_quantity'])
-        return int(row['total_quantity'])
+    cards_subtraction_details = cards_subtraction_details or {}
+    cards_subtraction_details = pd.DataFrame.from_dict(cards_subtraction_details) 
 
-    if not selected_card_val.empty:
-        for i, card_val in selected_card_val.iterrows():
-            df = cards_subtraction_details.loc[
-                (cards_subtraction_details['type_id_int'] == int(clicked_btn_index)) &
-                (cards_subtraction_details['type_id_str']
-                 == card_val['type_id_str'])
-            ]
-            if df.empty:
-                cards_subtraction_details = cards_subtraction_details.append({
-                    'type_id_int': int(clicked_btn_index),
-                    'type': card_val['type'],
-                    'type_only': card_val['type_only'],
-                    'total_quantity': int(card_val['quantity']),
-                    'type_id_str': card_val['type_id_str'],
-                    'opt_id': int(card_val['opt_id']),
-                    'card_datetime': card_val['card_datetime'],
-                    'card_date': card_val['card_date'],
-                    'card_time': card_val['card_time'],
-                    'card_phrase': card_val['card_phrase'],
-                    'card_index': card_val['card_index'],
-                    'additionalInfo': card_val['additionalInfo'],
-                    'gang_number': card_val['gang_number'],
-                    'gang_title': card_val['gang_title'],
-
-
-                }, ignore_index=True)
-            else:
-                cards_subtraction_details['total_quantity'] = cards_subtraction_details.apply(
-                    lambda row: edit_total_quantity(row, card_val), axis=1)
+    for card in substruct_items: 
+        card_id = int(card.split('_')[0])
+        data = cards_vals_df.loc[
+                        (cards_vals_df['type_id_int'] == int(card.split('_')[0])) & 
+                        (cards_vals_df['type_id_str'].isin(substruct_items[card]))
+                    ]
+        if not cards_subtraction_details.empty:
+            if card_id not in cards_subtraction_details['type_id_int'].tolist(): 
+                cards_subtraction_details = cards_subtraction_details.append(data, ignore_index=True)
+        else:
+            cards_subtraction_details = cards_subtraction_details.append(data, ignore_index=True)
 
     return cards_subtraction_details.to_dict('records')
 
@@ -274,7 +242,7 @@ def process_input_cards_v2(card_body_input, card_header_input):
     def generate_opt_ids(df):
         result = pd.DataFrame()
         for type_id_int in df['type_id_int'].drop_duplicates():
-            chunk_df = df.loc[df['type_id_int'] == type_id_int]
+            chunk_df = df.loc[df['type_id_int'] == type_id_int].copy()
             chunk_df['opt_id'] = list(range(len(chunk_df)))
             result = result.append(chunk_df, ignore_index=True)
         return result
@@ -318,7 +286,9 @@ def process_input_cards_v2(card_body_input, card_header_input):
                 row.update(result)
 
                 df = df.append(row, ignore_index=True)
+
     df = generate_opt_ids(df)
+    
     return df
 
 
