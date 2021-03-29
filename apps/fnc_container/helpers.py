@@ -44,7 +44,8 @@ def create_checkbox_opt(b):
             if i == 0:
                 options.append(
                     {"label": opt['gang_title'], "value": f'gang_{gang_number}_card_{opt["type_id_int"]}'})
-            options.append({"label": type_line_break(opt), "value": opt['type_id_str']})
+            options.append({"label": type_line_break(
+                opt), "value": opt['type_id_str']})
     return options
 
 
@@ -116,7 +117,8 @@ def subtract_selected_v3(input_data, substruct_if_clicked):
                     listgroup_df['production'] >= selected_row['quantity'])
                 idx = mask.idxmax() if mask.any() else np.repeat(False, len(listgroup_df))
                 #listgroup_df.loc[idx, 'quantity'] = listgroup_df.loc[idx, 'quantity'] - selected_row['quantity']
-                listgroup_df.loc[idx, 'production'] = listgroup_df.loc[idx, 'production'] - selected_row['quantity']
+                listgroup_df.loc[idx, 'production'] = listgroup_df.loc[idx,
+                                                                       'production'] - selected_row['quantity']
             else:
                 print(
                     f'disable this item: {selected_row["type_id_str"].values[0]} (not item available or quantity > stock)')
@@ -128,19 +130,23 @@ def commit_subtraction_v2(cards_values_all, cards_subtraction_details, substruct
     cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
 
     cards_subtraction_details = cards_subtraction_details or {}
-    cards_subtraction_details = pd.DataFrame.from_dict(cards_subtraction_details) 
+    cards_subtraction_details = pd.DataFrame.from_dict(
+        cards_subtraction_details)
 
-    for card in substruct_items: 
+    for card in substruct_items:
         card_id = int(card.split('_')[0])
         data = cards_vals_df.loc[
-                        (cards_vals_df['type_id_int'] == int(card.split('_')[0])) & 
-                        (cards_vals_df['type_id_str'].isin(substruct_items[card]))
-                    ]
+            (cards_vals_df['type_id_int'] == int(card.split('_')[0])) &
+            (cards_vals_df['type_id_str'].isin(
+                substruct_items[card]))
+        ]
         if not cards_subtraction_details.empty:
-            if card_id not in cards_subtraction_details['type_id_int'].tolist(): 
-                cards_subtraction_details = cards_subtraction_details.append(data, ignore_index=True)
+            if card_id not in cards_subtraction_details['type_id_int'].tolist():
+                cards_subtraction_details = cards_subtraction_details.append(
+                    data, ignore_index=True)
         else:
-            cards_subtraction_details = cards_subtraction_details.append(data, ignore_index=True)
+            cards_subtraction_details = cards_subtraction_details.append(
+                data, ignore_index=True)
 
     return cards_subtraction_details.to_dict('records')
 
@@ -276,19 +282,23 @@ def process_input_cards_v2(card_body_input, card_header_input):
                 row['type_id_int'] = i
                 row['card_datetime'] = datetime.strptime(
                     ' '.join(header.split()[:2]), '%d-%b-%y %H:%M')
-                row['card_date'] = datetime.strptime(
-                    ' '.join(header.split()[:2]), '%d-%b-%y %H:%M').date()
-                row['card_time'] = datetime.strptime(
-                    ' '.join(header.split()[:2]), '%d-%b-%y %H:%M').time()
-                row['card_phrase'] = ' '.join(header.split()[2:-1])
-                row['card_index'] = int(header.split()[-1])
+                row['card_date'] = row['card_datetime'].date()
+                row['card_time'] = row['card_datetime'].time()
+                if header.split()[2].isnumeric():
+                    # Card index
+                    row['card_index'] = int(header.split()[2])
+                    # Card Phrase
+                    row['card_phrase'] = ' '.join(header.split()[3:])
+                else:
+                    row['card_phrase'] = ' '.join(header.split()[2:-1])
+                    row['card_index'] = int(header.split()[-1])
 
                 row.update(result)
 
                 df = df.append(row, ignore_index=True)
 
     df = generate_opt_ids(df)
-    
+
     return df
 
 
@@ -580,18 +590,20 @@ def subtract(cards, substruct_if_clicked, context_dict, card_body):
 
     return substruct_if_clicked
 
+
 def update_val(row, item):
     if row['type_id_str'] == item['type_id_str']:
         row['production'] += item['quantity']
         row['quantity'] -= item['quantity']
     return row
 
+
 def substruct_all_card_items(cards, lists, card_idx):
-    card_item = cards.loc[cards['type_id_int']==int(card_idx.split('_')[1])]
+    card_item = cards.loc[cards['type_id_int'] == int(card_idx.split('_')[1])]
     for i, item in card_item.iterrows():
         lists = lists.apply(lambda row: update_val(row, item), axis=1)
     #substruct_items[card_idx] = card_item['type_id_str'].tolist()
-    #return substruct_items
+    # return substruct_items
 
     return lists.to_dict('records')
 
@@ -631,5 +643,3 @@ def check_if_selected_all(cards, substruct_if_clicked, disabled):
             disabled[int(card.split('_')[1])] = True
 
     return disabled
-
-

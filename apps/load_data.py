@@ -6,10 +6,11 @@ from dash.exceptions import PreventUpdate
 from app import app
 import locale
 from apps.fnc_container import helpers
-import ast 
+import ast
+
 
 # Windows:
-locale.setlocale(locale.LC_ALL, 'deu_deu')
+#locale.setlocale(locale.LC_ALL, 'deu_deu')
 # Ubuntu (Deployement Version):
 #locale.setlocale(locale.LC_ALL, 'deu_deu.UTF-8')
 
@@ -28,11 +29,11 @@ input_data = [
 ]
 
 cards_headers = [
-    '16-Dez-21 13:15 Hypersoft 1 7',
-    '17-Dez-21 14:12 Hypersoft 2 4',
-    '18-Dez-21 13:15 Hypersoft 3 5',
-    '18-Dez-21 13:15 Hypersoft 4 8',
-    '19-Dez-21 13:15 Hypersoft 5 1',
+    '16-Mar-21 13:15 1 Burgermeister',
+    '17-Mar-21 14:12 Burgermeister 2',
+    '18-Mar-21 13:15 Hypersoft 3 5',
+    '18-Mar-21 13:15 Burgermeister 2',
+    '19-Mar-21 13:15 Hypersoft 5 1',
 ]
 
 
@@ -108,7 +109,7 @@ layout = html.Div(
 def upload_data(n_clicks, listgroup_values, cards_values, cards_headers):
     if not n_clicks:
         raise PreventUpdate
-    
+
     if n_clicks:
         listgroup_values = ast.literal_eval(listgroup_values)
         cards_values = ast.literal_eval(cards_values)
