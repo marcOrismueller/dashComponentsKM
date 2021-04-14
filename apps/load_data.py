@@ -14,11 +14,6 @@ import ast
 # Ubuntu (Deployement Version):
 #locale.setlocale(locale.LC_ALL, 'deu_deu.UTF-8')
 
-# input_data = ['1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ',
-#               '1 Pink Persia Poutine + auf Knoblauchfritten ', '1 Portion Hausfritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Tijuana Street Fries + auf Hausfritten ', '2 Portion Knoblauchfritten 3 Portion Se Fritten ', '1 Classic Quebec Poutine + auf Hausfritten 1 Currywurst Frittenwerk Spezial + auf Knoblauchfritten ', '1 Tijuana Street Fries + auf Knoblauchfritten ']
-# cards_headers = ['08-Dez-20 15:40 Hypersoft Technik 1 100', '08-Dez-20 15:40 Hypersoft Technik 2 102', '10-Dez-20 16:19 Hypersoft Technik 102', '10-Dez-20 11:36 Hypersoft Technik 3 100', '10-Dez-20 11:38 Hypersoft Technik 4 101', '11-Dez-20 11:39 Hypersoft Technik 5 104', '08-Dez-20 15:40 Hypersoft Technik 5 100', '13-Dez-20 15:40 Hypersoft Technik 4 108', '11-Dez-20 16:19 Hypersoft Technik 2 100',
-#                  '15-Dez-20 11:36 Hypersoft Technik 2 106', '09-Dez-20 11:38 Hypersoft Technik 3 106', '15-Dez-20 11:39 Hypersoft Technik 2 100']
-
 
 input_data = [
     '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
@@ -35,7 +30,6 @@ cards_headers = [
     '18-Mar-21 13:15 Burgermeister 2',
     '19-Mar-21 13:15 Hypersoft 5 1',
 ]
-
 
 layout = html.Div(
     dbc.Container([

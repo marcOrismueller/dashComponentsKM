@@ -18,18 +18,19 @@ def hash_name(name=None):
 
 
 def type_line_break(product_type, btns=False, quantity=True):
+    price = "{:0,.2f}".format(float(product_type['price'])).replace('.', ',')
     if btns:
         if quantity:
             return [
                 html.B(l)
-                for l in f"{product_type['production']}/{product_type['quantity']} {product_type['type']}\n{product_type['additionalInfo']}".split('\n')
+                for l in f"{product_type['production']}/{product_type['quantity']} {product_type['type']} {price}\n{product_type['additionalInfo']}".split('\n')
             ]
         else:
             return [
                 html.P(l)
-                for l in f"{product_type['type_only']}\n{product_type['additionalInfo']}".split('\n')
+                for l in f"{product_type['quantity']} {product_type['type_only']} {price}\n{product_type['additionalInfo']}".split('\n')
             ]
-    return f"{product_type['type']}\n{product_type['additionalInfo']}"
+    return f"{product_type['type']} {price} \n{product_type['additionalInfo']}"
 
 
 def divide_chunks(l, n):
@@ -43,7 +44,7 @@ def create_checkbox_opt(b):
         for i, opt in b.loc[b['gang_number'] == gang_number].reset_index(drop=True).iterrows():
             if i == 0:
                 options.append(
-                    {"label": opt['gang_title'], "value": f'gang_{gang_number}_card_{opt["type_id_int"]}'})
+                    {"label": f"{opt['gang_title']}", "value": f'gang_{gang_number}_card_{opt["type_id_int"]}'})
             options.append({"label": type_line_break(
                 opt), "value": opt['type_id_str']})
     return options
@@ -224,7 +225,30 @@ def process_input_cards(data_elements, cards_headers):
     return cards_vals
 
 
+def get_bonus_sepator(card_body_input):
+    # The default separtor is "#"
+    bonus_separtor = '#'
+    for p in card_body_input:
+        if '+ ' in p:
+            for string in p.split('+ '):
+                if not string.split(' ')[0].strip().replace('.', '').isnumeric():
+                    bonus_separtor = '+'
+                    break
+        elif '&' in p:
+            bonus_separtor = '&'
+            break
+        elif 'mit' in p:
+            bonus_separtor = 'mit'
+            break
+        elif 'ohne' in p:
+            bonus_separtor = 'ohne'
+            break
+    return bonus_separtor
+
+
 def process_input_cards_v2(card_body_input, card_header_input):
+    bonus_separtor = get_bonus_sepator(card_body_input)
+
     def get_type_details(chunk):
         result = {}
 
@@ -270,10 +294,10 @@ def process_input_cards_v2(card_body_input, card_header_input):
                 }
             else:
                 additionalInfo = []
-                p_chunked = re.split(r'.(?=#)', p)
+                p_chunked = re.split(f'.(?={bonus_separtor})', p)
 
                 for chunk in p_chunked:
-                    if '#' in chunk:
+                    if bonus_separtor in chunk:
                         additionalInfo.append(chunk)
                     else:
                         result = get_type_details(chunk)
@@ -303,6 +327,9 @@ def process_input_cards_v2(card_body_input, card_header_input):
 
 
 def process_input_listgroup_v2(card_body_input):
+
+    bonus_separtor = get_bonus_sepator(card_body_input)
+
     def get_type_details(chunk):
         result = {}
 
@@ -334,9 +361,9 @@ def process_input_listgroup_v2(card_body_input):
                 continue
             else:
                 additionalInfo = []
-                p_chunked = re.split(r'.(?=#)', p)
+                p_chunked = re.split(f'.(?={bonus_separtor})', p)
                 for chunk in p_chunked:
-                    if '#' in chunk:
+                    if bonus_separtor in chunk:
                         additionalInfo.append(chunk)
                     else:
                         result = get_type_details(chunk)

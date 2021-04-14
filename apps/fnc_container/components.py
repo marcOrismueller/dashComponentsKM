@@ -255,11 +255,11 @@ def get_filter_slidebar():
 
 filter_modal = dbc.Modal(
             [
-                dbc.ModalHeader("Sort Cards"),
+                dbc.ModalHeader("Filters"),
                 dbc.ModalBody(
                     html.Div(
                         children=[
-                            html.P('Filter by specific date:', className='control_label'),
+                            html.P('Specific date:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='date_picker_1',
@@ -270,7 +270,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ), 
 
-                            html.P('Filter by specific time:', className='control_label'),
+                            html.P('Specific time:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='datetime_picker_1',
@@ -281,7 +281,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ), 
 
-                            html.P('Filter by table index:', className='control_label'),
+                            html.P('Table index:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='card_index_1',
@@ -292,7 +292,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ),
 
-                            html.P('Filter by table Gang number:', className='control_label'),
+                            html.P('Gang numbers:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='gang_number_1',
@@ -303,7 +303,7 @@ filter_modal = dbc.Modal(
                                 className='dcc_control'
                             ),
 
-                            html.P('Filter by plate types:', className='control_label'),
+                            html.P('Plate types:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='plate_type_1',
@@ -314,7 +314,7 @@ filter_modal = dbc.Modal(
                                 )
                             ),
 
-                            html.P('Filter by Phrase:', className='control_label'),
+                            html.P('Phrases:', className='control_label'),
                             html.Div(
                                 dcc.Dropdown(
                                     id='phrase_1',

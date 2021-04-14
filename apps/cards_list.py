@@ -14,6 +14,7 @@ from datetime import datetime
 
 
 def show_items(listgroup_values, mainCallBack=True):
+    listgroup_values = listgroup_values.sort_values(by=['type'])
     if mainCallBack:
         return [
             dbc.ListGroupItem(
@@ -180,6 +181,7 @@ def show_page(input_data, filtred_cards):  # , filtred_cards
     Output('start_data_holder', 'data'),
     Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
     State('input_data', 'data'),
+    #State('filtred_cards', 'data'),
     State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
     State('start_data_holder', 'data'),
     prevent_initial_call=True
@@ -187,11 +189,9 @@ def show_page(input_data, filtred_cards):  # , filtred_cards
 def start_btn_handler(substraction_btn, input_data, substraction_btn_status, start_data_holder):
     start_data_holder = start_data_holder or input_data
     context = dash.callback_context.triggered[0]
-    #print(hlp.subtract_selected_v3(input_data, start_data_holder))
     if context:
         if context['prop_id'] == '.' or not input_data:
-            raise PreventUpdate
-        
+            raise PreventUpdate      
         context_dict = json.loads(dash.callback_context.triggered[0]['prop_id'].split('.')[0])
         cards = pd.DataFrame.from_dict(start_data_holder['initial']['cards_values'])
         lists = pd.DataFrame.from_dict(start_data_holder['initial']['listgroup_values'])
@@ -202,6 +202,7 @@ def start_btn_handler(substraction_btn, input_data, substraction_btn_status, sta
                     lists, 
                     context_dict['index']
                 )
+                
             else: 
                 raise PreventUpdate
     return start_data_holder
@@ -254,16 +255,6 @@ def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_it
             old_values = substruct_items[str(context_dict['index'])][:]
             substruct_items[str(context_dict['index'])] = context['value']
             new_values = substruct_items[str(context_dict['index'])][:]
-
-        # elif context_dict['id'] == 'commit_substraction_btn' and context['value'] is not None:
-        #     if substraction_btn_status[int(context_dict['index'].split('_')[1])] == 'Start':
-        #         start_data_holder = hlp.substruct_all_card_items(
-        #             data,
-        #             start_data_holder, 
-        #             context_dict['index']
-        #         )
-        #     else: 
-        #         raise PreventUpdate
                 
         if context_dict['id'] in ['card_value', 'lst_item_btn']:
             substruct_items = hlp.gang_checker(
@@ -281,9 +272,10 @@ def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_it
     State({'id': 'card_value', 'index': ALL}, 'value'),
     #State('input_data', 'data'),
     State({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
+    State('filtred_cards', 'data'),
     prevent_initial_call=True
 )
-def update_checklist_options_vals(substruct_items, start_data_holder, old_vals, btns):
+def update_checklist_options_vals(substruct_items, start_data_holder, old_vals, btns, filtred_cards):
     if not substruct_items:
         raise PreventUpdate
     
@@ -291,8 +283,15 @@ def update_checklist_options_vals(substruct_items, start_data_holder, old_vals, 
         raise PreventUpdate
     
     # Update the left-listgroup
-    new_items = show_items(hlp.subtract_selected_v3(start_data_holder, substruct_items), False)
-
+    items = hlp.subtract_selected_v3(start_data_holder, substruct_items)
+    if filtred_cards:
+        cards = pd.DataFrame.from_dict(filtred_cards['initial']['cards_values'])
+        items = items.loc[
+            items['type_id_str'].isin(
+                cards['type_id_str'].drop_duplicates().tolist()
+            )
+        ]
+    new_items = show_items(items, False)
     context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     if context == 'start_data_holder':
         return old_vals, new_items, btns
@@ -385,8 +384,7 @@ def toggle_modal(
         return not is_open, {}
 
     if context == 'apply_filter' and context_value:
-        df = pd.DataFrame.from_dict(
-            filtred_cards_tmp['initial']['cards_values'])
+        df = pd.DataFrame.from_dict(filtred_cards_tmp['initial']['cards_values'])
         sort_by = [sort_by] # + ['gang_number']
         ascending = False
         if sort_how == 0:
@@ -445,6 +443,9 @@ def update_result(
 
     cards_values = pd.DataFrame.from_dict(
         input_data['initial'].get('cards_values')
+    )
+    listgroup_values = pd.DataFrame.from_dict(
+        input_data['initial'].get('listgroup_values')
     )
 
     cards_subtr = cards_values.copy()
@@ -525,5 +526,12 @@ def update_result(
                               for x in cards_values['card_phrase'].drop_duplicates()]
 
     cards_subtr = cards_subtr.sort_values(by=['type_id_int', 'gang_number']).reset_index(drop=True)
+    listgroup_items = listgroup_values.loc[
+            listgroup_values['type_id_str'].isin(
+                cards_subtr['type_id_str'].drop_duplicates().tolist()
+            )
+        ]
+    
     input_data['initial']['cards_values'] = cards_subtr.to_dict('records')
+    input_data['initial']['listgroup_values'] = listgroup_items.to_dict('records')
     return input_data, date_picker_options, datetime_picker_options, card_index_options, gang_number_options, plate_type_options, phrase_options
