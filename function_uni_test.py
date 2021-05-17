@@ -20,6 +20,7 @@ cards_headers = [
     '19-Mar-21 13:15 Hypersoft 5 1',
 ]
 
+
 def hash_name(name=None):
     new_name = ""
     for character in name:
@@ -29,29 +30,32 @@ def hash_name(name=None):
         new_name.encode('utf-8')).hexdigest(), 16) % 10**8
     return str(hashName)
 
-def get_bonus_sepator(card_body_input): 
+
+def get_bonus_sepator(card_body_input):
     # The default separtor is "#"
     bonus_separtor = '#'
-    for p in card_body_input: 
+    for p in card_body_input:
         if '+ ' in p:
             for string in p.split('+ '):
                 if not string.split(' ')[0].strip().replace('.', '').isnumeric():
                     bonus_separtor = '+'
                     break
-        elif '&' in p: 
+        elif '&' in p:
             bonus_separtor = '&'
             break
-        elif 'mit' in p: 
+        elif 'mit' in p:
             bonus_separtor = 'mit'
             break
-        elif 'ohne' in p: 
+        elif 'ohne' in p:
             bonus_separtor = 'ohne'
             break
     return bonus_separtor
 
+
 def process_input_listgroup_v2(card_body_input):
-    
+
     bonus_separtor = get_bonus_sepator(card_body_input)
+
     def get_type_details(chunk):
         result = {}
 
@@ -108,6 +112,7 @@ def process_input_listgroup_v2(card_body_input):
 
 def process_input_cards_v2(card_body_input, card_header_input):
     bonus_separtor = get_bonus_sepator(card_body_input)
+
     def get_type_details(chunk):
         result = {}
 
@@ -169,12 +174,12 @@ def process_input_cards_v2(card_body_input, card_header_input):
                 row['card_time'] = row['card_datetime'].time()
                 if header.split()[2].isnumeric():
                     # Card index
-                    row['card_index'] = int(header.split()[2])
+                    row['process'] = int(header.split()[2])
                     # Card Phrase
-                    row['card_phrase'] = ' '.join(header.split()[3:])
+                    row['waitress'] = ' '.join(header.split()[3:])
                 else:
-                    row['card_phrase'] = ' '.join(header.split()[2:-1])
-                    row['card_index'] = int(header.split()[-1])
+                    row['waitress'] = ' '.join(header.split()[2:-1])
+                    row['process'] = int(header.split()[-1])
 
                 row.update(result)
 
@@ -187,7 +192,3 @@ def process_input_cards_v2(card_body_input, card_header_input):
 
 new_listgroup_values = process_input_listgroup_v2(input_data)
 new_cards_values = process_input_cards_v2(input_data, cards_headers)
-
-
-
-

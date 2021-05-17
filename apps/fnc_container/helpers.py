@@ -23,7 +23,7 @@ def type_line_break(product_type, btns=False, quantity=True):
         if quantity:
             return [
                 html.B(l)
-                for l in f"{product_type['production']}/{product_type['quantity']} {product_type['type']} {price}\n{product_type['additionalInfo']}".split('\n')
+                for l in f"{product_type['production']}/{product_type['quantity']} {product_type['type_only']} {price}\n{product_type['additionalInfo']}".split('\n')
             ]
         else:
             return [
@@ -216,8 +216,8 @@ def process_input_cards(data_elements, cards_headers):
                     'card_datetime': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M'),
                     'card_date': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M').date(),
                     'card_time': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M').time(),
-                    'card_phrase': ' '.join(header.split()[2:-1]),
-                    'card_index': int(header.split()[-1])
+                    'waitress': ' '.join(header.split()[2:-1]),
+                    'process': int(header.split()[-1])
                 }, ignore_index=True)
                 opt_id += 1
 
@@ -225,24 +225,26 @@ def process_input_cards(data_elements, cards_headers):
     return cards_vals
 
 
-def get_bonus_sepator(card_body_input):
+def get_bonus_sepator(p):
     # The default separtor is "#"
     bonus_separtor = '#'
-    for p in card_body_input:
-        if '+ ' in p:
-            for string in p.split('+ '):
-                if not string.split(' ')[0].strip().replace('.', '').isnumeric():
-                    bonus_separtor = '+'
-                    break
-        elif '&' in p:
-            bonus_separtor = '&'
-            break
-        elif 'mit' in p:
-            bonus_separtor = 'mit'
-            break
-        elif 'ohne' in p:
-            bonus_separtor = 'ohne'
-            break
+    #for p in card_body_input:
+    if '#' in p: 
+        return bonus_separtor
+    if '+ ' in p:
+        for string in p.split('+ '):
+            if not string.split(' ')[0].strip().replace('.', '').isnumeric():
+                bonus_separtor = '+'
+                break
+    elif '&' in p:
+        bonus_separtor = '&'
+        #break
+    elif 'mit' in p:
+        bonus_separtor = 'mit'
+        #break
+    elif 'ohne' in p:
+        bonus_separtor = 'ohne'
+        #break
     return bonus_separtor
 
 
@@ -310,12 +312,12 @@ def process_input_cards_v2(card_body_input, card_header_input):
                 row['card_time'] = row['card_datetime'].time()
                 if header.split()[2].isnumeric():
                     # Card index
-                    row['card_index'] = int(header.split()[2])
+                    row['process'] = int(header.split()[2])
                     # Card Phrase
-                    row['card_phrase'] = ' '.join(header.split()[3:])
+                    row['waitress'] = ' '.join(header.split()[3:])
                 else:
-                    row['card_phrase'] = ' '.join(header.split()[2:-1])
-                    row['card_index'] = int(header.split()[-1])
+                    row['waitress'] = ' '.join(header.split()[2:-1])
+                    row['process'] = int(header.split()[-1])
 
                 row.update(result)
 
@@ -670,3 +672,167 @@ def check_if_selected_all(cards, substruct_if_clicked, disabled):
             disabled[int(card.split('_')[1])] = True
 
     return disabled
+
+
+def is_date(info='15-Apr-21'): 
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Juni', 'Juli', 'Aug', 'Sept', 'Okt', 'Nov', 'Dez']
+    infos = info.split('-')
+    if len(infos) == 3 and infos[0].isnumeric() and infos[2].isnumeric() and infos[1] in months: 
+        return True
+    return False
+
+def extract_header_infos(header='PIZZA&PASTA 15-Apr-21 15:55 5 Restaurant Hypersoft 12'):
+    # Since the order of the infos is not fixed between the input header, 
+    # we have to find a trick to extract this infos correctly, 
+    # so we will take the date index as a reference to identify the other infos.
+    infos_dict = {
+            'card_datetime': '', 
+            'card_date': '',
+            'card_time': '',
+            'station': '',
+            'waitress': '', 
+            'process': '', 
+            'table': ''
+        }
+    infos = header.split()
+    for info in infos: 
+        if is_date(info): 
+            date_idx = infos.index(info)
+            break
+    
+    infos_dict['card_datetime'] = datetime.strptime(f'{infos[date_idx]} {infos[date_idx+1]}', '%d-%b-%y %H:%M')
+    infos_dict['card_date'] = infos_dict['card_datetime'].date()
+    infos_dict['card_time'] = infos_dict['card_datetime'].time()
+    # Check what info available in the left of the date index.
+    target_idx = date_idx-1
+    if target_idx >= 0: 
+        if infos[target_idx].isnumeric():
+            # Vorgang/Process
+            infos_dict['process'] = int(infos[target_idx])
+        else: 
+            # Station
+            infos_dict['station'] = ' '.join(infos[:target_idx+1])
+    else:
+        pass
+    
+    # Check what info available on the right of the date index.
+    target_idx = date_idx+2
+    if len(infos) > target_idx: 
+        process = False
+        for idx in range(target_idx, len(infos), 1):
+            if infos[target_idx].isnumeric() and not process:
+                # Vorgang/Process
+                infos_dict['process'] = int(infos[target_idx])
+            elif not infos[idx].isnumeric():
+                infos_dict['waitress'] += f' {infos[idx]}'
+            else: 
+                infos_dict['table'] = int(infos[idx])
+            process = True
+    
+    infos_dict['waitress'] = infos_dict['waitress'].strip()
+    
+    return infos_dict
+
+def get_type_details(chunk):  
+    result = {}
+    price = 0
+    quantity = 0
+    prices = re.findall("\d+\.\d+", chunk)
+    if prices:
+        price = float(prices[0])
+    quantities = re.findall(r'\d+', chunk)
+    if quantities:
+        quantity = int(quantities[0])
+
+    food_type_only = ''
+    infos = chunk.replace('/', '').split()[1:]
+    for i, x in enumerate(infos):
+        if re.match(r'^[+-]?\d+(?:\.\d+)$|^[+-]?\d+(?:,\d+)$|^[+-]?\d+', x) is None:
+            food_type_only += f'{x} '
+
+    result = {
+        'type': f'{quantity}x {food_type_only}',
+        'type_only': food_type_only.strip(),
+        'quantity': quantity,
+        'price': price,
+    }
+    return result
+
+def generate_opt_ids(df):
+    result = pd.DataFrame()
+    for type_id_int in df['type_id_int'].drop_duplicates():
+        chunk_df = df.loc[df['type_id_int'] == type_id_int].copy()
+        chunk_df['opt_id'] = list(range(len(chunk_df)))
+        result = result.append(chunk_df, ignore_index=True)
+    return result
+
+
+# infos = '1. Gang 1x Ribollita 6.50/ 1 #Standard 6.50/ 1 1x Tomatencremesuppe 6.50/ 2 #Standard 6.50/ 2 2. Gang 6.50/ 2 6.50/ 2 1x Chili con Carne 8.50/ 2 #Standard 8.50/ 2 '
+def extract_card_info(infos, header, idx): 
+    body = infos.replace(header, '').strip()
+    body_infos = re.split(r'\s(?=\d+. Gang|\d+x)', body)
+    df = pd.DataFrame()
+    row = {
+        'gang_title': '',
+        'gang_number': 0,
+        'gang_id': ''
+    }
+    header_success = False
+    for info in body_infos:
+        if re.search(r'(?=[1-9]+. Gang)', info): 
+            gang_info = ' '.join(info.split()[:info.index('Gang')-1])
+            row['gang_title'] = gang_info
+            row['gang_number'] = int(re.findall(r'\d+', gang_info)[0])
+            row['gang_id'] = gang_info.lower().replace(' ', '_')
+        
+        elif re.search(r'(\d+x)', info): 
+            additionalInfo = []
+            bonus_separtor = get_bonus_sepator(info)
+            if bonus_separtor == '+':
+                p_chunked = [
+                    d.replace(bonus_separtor, f'{bonus_separtor} ') 
+                    if not f'{bonus_separtor} ' in d
+                    else d
+                    for d in re.split(f'.(?=\{bonus_separtor})', info)
+                ]
+            else: 
+                 p_chunked = [
+                    d.replace(bonus_separtor, f'{bonus_separtor} ') 
+                    if not f'{bonus_separtor} ' in d
+                    else d
+                    for d in re.split(f'.(?={bonus_separtor})', info)
+                ]
+            for chunk in p_chunked:
+                if bonus_separtor in chunk:
+                    additionalInfo.append(chunk)
+                else:
+                    row.update(get_type_details(chunk))
+            row['type_id_str'] = hash_name(info)
+            row['additionalInfo'] = '\n'.join(additionalInfo)
+            row['type_id_int'] = idx
+            row['bonus_separtor'] = bonus_separtor
+            if not header_success: 
+                row_dict = extract_header_infos(header)
+                header_success = True
+            row.update(row_dict)
+            df = df.append(row, ignore_index=True)
+    df = generate_opt_ids(df)
+    return df
+
+def food_cards_listings(input_data, cards_headers):
+    data = pd.DataFrame()
+    for idx, (body, header) in enumerate(zip(input_data, cards_headers)):
+        data = data.append(extract_card_info(body, header, idx), ignore_index=True)
+    return data
+
+def foods_listing(df):
+    result = df.groupby(['type_id_str']).agg({
+        'quantity': 'sum',
+        'price': 'sum',
+        'type': 'last',
+        'type_only': 'last',
+        'additionalInfo': 'last',
+    }).reset_index()
+    result['type_id_int'] = range(len(result))
+    result['production'] = 0
+    return result

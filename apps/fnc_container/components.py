@@ -1,6 +1,6 @@
 import dash_bootstrap_components as dbc
 import dash_html_components as html
-from app import  app
+from app import app
 import plotly.express as px
 from apps.fnc_container import helpers
 import dash_core_components as dcc
@@ -71,81 +71,152 @@ sidebar = html.Div(
     style=SIDEBAR_HIDEN,
 )
 
-def build_a_link(test=False):
-    if test: 
-        btn_link = dbc.Row([
-                html.Div(id= 'go_to_details', children=[
-                        html.Div(
-                            dcc.Link(
-                                dbc.Button(
-                                    "Show Details", outline=True, color="secondary", className="mr-1"
-                                ),
-                                href='/subtraction-details',
-                                id='details_btn',
-                        ))
-                    ], style={'display': 'none'}),
-                dbc.Button("Filter", outline=True, color="secondary", className="mr-1", id="btn_filter_modal"), 
-            ], 
-            no_gutters=True,
-            className="ml-auto flex-nowrap mt-3 mt-md-0",
-            align="center")
-        return btn_link
-    
-    btn_link = dbc.Row([
-        dbc.Col(
-            html.A(
-                dbc.Button(
-                    'Control Panel',
-                    outline=True,
-                    color="light",
-                    className="mr-1", 
-                    style={'border': '0px'}
-                ), 
-                href='/items-selection'
-            ),
-            width="auto"
-        ),
-        dbc.Col(
-            html.A(
-                dbc.Button(
-                    'Data Board',
-                    outline=True,
-                    color="light",
-                    className="mr-1", 
-                    style={'border': '0px'}
-                ), 
-                href='/subtraction-details'
-            ),
-            width="auto"
-        )],
-        no_gutters=True,
-        className="ml-auto flex-nowrap mt-3 mt-md-0",
-        align="center"
-    )
-    return btn_link
 
-
-def navbar(): 
-    navbar = dbc.Navbar(
-        [
-            html.A(
-                dbc.Row(
-                    [
-                        dbc.Col(html.Img(src=app.get_asset_url("logo.png"), height="50px", id='logo')),
-                        #dbc.Col(dbc.NavbarBrand("SaCoSo KM", className="ml-2")),
-                    ],
-                    align="center",
-                    no_gutters=True,
+def build_a_link(current_page, current_user):
+    styleItems = {
+        'display': 'block',
+        'textDecoration': 'none',
+        'color': 'black'
+    }
+    if current_user.is_authenticated:
+        # make a reuseable dropdown for the different examples
+        dropdown = dbc.DropdownMenu(
+            children=[
+                dbc.DropdownMenuItem(
+                    dcc.Link(
+                        "Control Panel",
+                        href='/items-selection',
+                        style=styleItems
+                    )
                 ),
-                href="/items-selection",
+                dbc.DropdownMenuItem(
+                    dcc.Link(
+                        "Dashboard Details",
+                        href='/subtraction-details',
+                        style=styleItems,
+                        id='go_to_details'
+                    )
+                ),
+                dbc.DropdownMenuItem(
+                    dcc.Link(
+                        "Upload Data",
+                        href='/load-data',
+                        style=styleItems
+                    )
+                ),
+                dbc.DropdownMenuItem(divider=True),
+                dbc.DropdownMenuItem(
+                    dcc.Link(
+                        'Logout',
+                        href='/logout',
+                        style=styleItems,
+                    )
+                ),
+            ],
+            nav=True,
+            in_navbar=True,
+            label=f"Hi {current_user.user_fname.title()}!",
+        )
+        # make a reuseable navitem for the different examples
+        nav_item = dbc.NavItem(
+            dbc.Button("Filter", outline=True, color="secondary",
+                       className="mr-1", id="btn_filter_modal"),
+            style={'marginRight': '30px'}
+        )
+        links = dbc.Nav([nav_item, dropdown], className="ml-auto", navbar=True)
+    else:
+        links = dbc.Nav(dcc.Link('Login', href='/login'),
+                        className="ml-auto", navbar=True)
+    # links=[]
+    # if current_page == '/items-selection':
+    #     links = [
+    #             html.Div(id= 'go_to_details', children=[
+    #                     html.Div(
+    #                         dcc.Link(
+    #                             dbc.Button(
+    #                                 "Show Details", outline=True, color="secondary", className="mr-1"
+    #                             ),
+    #                             href='/subtraction-details',
+    #                             id='details_btn',
+    #                     ))
+    #                 ], style={'display': 'none'}),
+    #             dbc.Button("Filter", outline=True, color="secondary", className="mr-1", id="btn_filter_modal"),
+    #         ]
+
+    # elif '/subtraction-details':
+    #     links = [
+    #         dbc.Col(
+    #             html.A(
+    #                 dbc.Button(
+    #                     'Control Panel',
+    #                     outline=True,
+    #                     color="light",
+    #                     className="mr-1",
+    #                     style={'border': '0px'}
+    #                 ),
+    #                 href='/items-selection'
+    #             ),
+    #             width="auto"
+    #         ),
+    #         dbc.Col(
+    #             html.A(
+    #                 dbc.Button(
+    #                     'Data Board',
+    #                     outline=True,
+    #                     color="light",
+    #                     className="mr-1",
+    #                     style={'border': '0px'}
+    #                 ),
+    #                 href='/subtraction-details'
+    #             ),
+    #             width="auto"
+    #         ),
+    #     ]
+    # else:
+
+    # if current_user.is_authenticated:
+    #     links.append(html.Div(
+    #                 html.A('Logout', href='/logout'),
+    #                 id="login_status"
+    #             ))
+    # else:
+    #      links.append(html.Div(
+    #                 html.A('Login', href='/login'),
+    #                 id="login_status"
+    #             ))
+    # btn_link = dbc.Row(links,
+    #     no_gutters=True,
+    #     className="ml-auto flex-nowrap mt-3 mt-md-0",
+    #     align="center"
+    # )
+    return links
+
+
+def navbar(current_user):
+    links = [
+        html.A(
+            dbc.Row(
+                [
+                    dbc.Col(html.Img(src=app.get_asset_url(
+                            "logo.png"), height="50px", id='logo')),
+                    #dbc.Col(dbc.NavbarBrand("SaCoSo KM", className="ml-2")),
+                ],
+                align="center",
+                no_gutters=True,
             ),
-            dbc.Collapse(id="navbar-collapse", navbar=True), 
-        ],
+            href="/items-selection",
+        ),
+        dbc.Collapse(id="navbar-collapse", navbar=True),
+    ]
+
+    navbar = dbc.Navbar(
+        links,
         color="dark",
         dark=True,
-        style={'padding': '0.5% 2% 0.5% 3%'}
+        style={'padding': '0.5% 10% 0.5% 10%'}
     )
     return navbar
+
 
 def build_pie(df, values, names, color='type_only', height=350):
     fig = px.pie(
@@ -156,10 +227,10 @@ def build_pie(df, values, names, color='type_only', height=350):
     )
     fig.update_traces(textposition='inside')
     fig.update_layout(
-        margin=dict(t=0,r=0,b=0,l=0),
+        margin=dict(t=0, r=0, b=0, l=0),
         autosize=True,
         height=height,
-        uniformtext_minsize=12, 
+        uniformtext_minsize=12,
         uniformtext_mode='hide',
         title_x=0.5,
         plot_bgcolor="#F9F9F9",
@@ -171,11 +242,12 @@ def build_pie(df, values, names, color='type_only', height=350):
 def get_cards_details(df, n_for_each_row=2):
     result = []
     row = []
-    for i, card in df.drop_duplicates(subset=['type_id_int']).iterrows():    
+    for i, card in df.drop_duplicates(subset=['type_id_int']).iterrows():
         row.append(
             html.Div(
                 html.Div([
-                    html.H4(f'Tisch {card["card_index"]}', style={'marginBottom': '25px', 'textAlign': 'center'}),
+                    html.H4(f'Tisch {card["process"]}', style={
+                            'marginBottom': '25px', 'textAlign': 'center'}),
                     html.Div([
                         dbc.Row([
                             dbc.Col(
@@ -184,7 +256,8 @@ def get_cards_details(df, n_for_each_row=2):
                                     children=[
                                         dbc.ListGroup([
                                             dbc.ListGroupItem(
-                                                children=helpers.get_tot_quantity(row), 
+                                                children=helpers.get_tot_quantity(
+                                                    row),
                                                 style={'padding': '8px'}
                                             )
                                             for j, row in df.loc[df['type_id_int'] == card['type_id_int']].iterrows()
@@ -194,41 +267,42 @@ def get_cards_details(df, n_for_each_row=2):
                             ),
                             dbc.Col(
                                 html.Div(dcc.Graph(figure=build_pie(
-                                    df.loc[df['type_id_int'] == card['type_id_int']], 
+                                    df.loc[df['type_id_int'] ==
+                                           card['type_id_int']],
                                     'quantity',
-                                    'type_only', 
-                                    'type_only', 
+                                    'type_only',
+                                    'type_only',
                                     250,
-                                    ))
+                                ))
                                 )
                             )
                         ], style={'alignItems': 'center'}),
                     ], style={'width': '96%'}),
-                ], className='column'), 
-                className='pretty_container', 
+                ], className='column'),
+                className='pretty_container',
                 style={'width': '48%'}
             )
         )
-        if (i+1)%n_for_each_row==0: 
+        if (i+1) % n_for_each_row == 0:
             result.append(
                 html.Div(
-                    row, 
+                    row,
                     className='row flex-display'
                 )
             )
             row = []
-    if row: 
+    if row:
         result.append(
-                html.Div(
-                    row, 
-                    className='row flex-display'
-                )
+            html.Div(
+                row,
+                className='row flex-display'
             )
+        )
 
     return result
 
 
-def get_filter_slidebar(): 
+def get_filter_slidebar():
     sidebar = html.Div(
         [
             html.H2("Sidebar", className="display-4"),
@@ -252,118 +326,120 @@ def get_filter_slidebar():
     return sidebar
 
 
-
 filter_modal = dbc.Modal(
-            [
-                dbc.ModalHeader("Filters"),
-                dbc.ModalBody(
+    [
+        dbc.ModalHeader("Filters"),
+        dbc.ModalBody(
+            html.Div(
+                children=[
+                    html.P('Specific date:',
+                           className='control_label'),
                     html.Div(
-                        children=[
-                            html.P('Specific date:', className='control_label'),
-                            html.Div(
-                                dcc.Dropdown(
-                                    id='date_picker_1',
-                                    multi=True,
-                                    options=[],
-                                    placeholder='YYYY-MM-DD',
-                                ), 
-                                className='dcc_control'
-                            ), 
-
-                            html.P('Specific time:', className='control_label'),
-                            html.Div(
-                                dcc.Dropdown(
-                                    id='datetime_picker_1',
-                                    multi=True,
-                                    options=[],
-                                    placeholder='HH:MM:SS',
-                                ), 
-                                className='dcc_control'
-                            ), 
-
-                            html.P('Table index:', className='control_label'),
-                            html.Div(
-                                dcc.Dropdown(
-                                    id='card_index_1',
-                                    multi=True,
-                                    options=[],
-                                    placeholder='100 ...',
-                                ), 
-                                className='dcc_control'
-                            ),
-
-                            html.P('Gang numbers:', className='control_label'),
-                            html.Div(
-                                dcc.Dropdown(
-                                    id='gang_number_1',
-                                    multi=True,
-                                    options=[],
-                                    placeholder='1. Gang',
-                                ), 
-                                className='dcc_control'
-                            ),
-
-                            html.P('Plate types:', className='control_label'),
-                            html.Div(
-                                dcc.Dropdown(
-                                    id='plate_type_1',
-                                    multi=True,
-                                    options=[],
-                                    #placeholder='...',
-                                    className='dcc_control'
-                                )
-                            ),
-
-                            html.P('Phrases:', className='control_label'),
-                            html.Div(
-                                dcc.Dropdown(
-                                    id='phrase_1',
-                                    multi=True,
-                                    options=[],
-                                    #placeholder='...',
-                                ), 
-                                className='dcc_control'
-                            ),
-
-                            html.P('Sort by:', className='control_label'),
-                            html.Div(
-                                dbc.RadioItems(
-                                    options=[
-                                        {"label": "Date", "value": 'card_date'},
-                                        {"label": "Phrase", "value": 'card_phrase'},
-                                        {"label": 'Card Number', 'value': 'card_index'}
-                                    ],
-                                    value='card_index',
-                                    id="sort_by",
-                                    inline=True,
-                                    className='sort'
-                                ),
-                                className='dcc_control'
-                            ),
-
-                            html.P('How:', className='control_label'),
-                            html.Div(
-                                dbc.RadioItems(
-                                    options=[
-                                        {"label": "Asc", "value": 1},
-                                        {"label": "Desc", "value": 0},
-                                    ],
-                                    value=1,
-                                    id="sort_how",
-                                    inline=True,
-                                    className='sort'
-                                ),
-                                className='dcc_control'
-                            )
-                        ]
+                        dcc.Dropdown(
+                            id='date_picker_1',
+                            multi=True,
+                            options=[],
+                            placeholder='YYYY-MM-DD',
+                        ),
+                        className='dcc_control'
                     ),
-                ),
-                dbc.ModalFooter(
-                    dbc.Button(
-                        "Process", id="apply_filter", className="ml-auto"
+
+                    html.P('Specific time:',
+                           className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='datetime_picker_1',
+                            multi=True,
+                            options=[],
+                            placeholder='HH:MM:SS',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Table index:', className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='process_1',
+                            multi=True,
+                            options=[],
+                            placeholder='100 ...',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Gang numbers:', className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='gang_number_1',
+                            multi=True,
+                            options=[],
+                            placeholder='1. Gang',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Plate types:', className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='plate_type_1',
+                            multi=True,
+                            options=[],
+                            # placeholder='...',
+                            className='dcc_control'
+                        )
+                    ),
+
+                    html.P('Phrases:', className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='phrase_1',
+                            multi=True,
+                            options=[],
+                            # placeholder='...',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Sort by:', className='control_label'),
+                    html.Div(
+                        dbc.RadioItems(
+                            options=[
+                                {"label": "Date", "value": 'card_date'},
+                                {"label": "Phrase", "value": 'waitress'},
+                                {"label": 'Card Number',
+                                 'value': 'process'}
+                            ],
+                            value='process',
+                            id="sort_by",
+                            inline=True,
+                            className='sort'
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('How:', className='control_label'),
+                    html.Div(
+                        dbc.RadioItems(
+                            options=[
+                                {"label": "Asc", "value": 1},
+                                {"label": "Desc", "value": 0},
+                            ],
+                            value=1,
+                            id="sort_how",
+                            inline=True,
+                            className='sort'
+                        ),
+                        className='dcc_control'
                     )
-                ),
-            ],
-            id="filter_modal",
-            centered=True,
-        )
+                ]
+            ),
+        ),
+        dbc.ModalFooter(
+            dbc.Button(
+                "Process", id="apply_filter", className="ml-auto"
+            )
+        ),
+    ],
+    id="filter_modal",
+    centered=True,
+)
