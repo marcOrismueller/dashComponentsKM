@@ -5,6 +5,8 @@ import re
 import dash_html_components as html
 import hashlib
 import json
+from app import engine
+from apps.fnc_container import crud_op_db
 
 
 def hash_name(name=None):
@@ -23,14 +25,14 @@ def type_line_break(product_type, btns=False, quantity=True):
         if quantity:
             return [
                 html.B(l)
-                for l in f"{product_type['production']}/{product_type['quantity']} {product_type['type_only']} {price}\n{product_type['additionalInfo']}".split('\n')
+                for l in f"{product_type['production']}/{product_type['available_quantity']} {product_type['type_only']} {price}\n{product_type['bonus']}".split('\n')
             ]
         else:
             return [
                 html.P(l)
-                for l in f"{product_type['quantity']} {product_type['type_only']} {price}\n{product_type['additionalInfo']}".split('\n')
+                for l in f"{product_type['available_quantity']} {product_type['type_only']} {price}\n{product_type['bonus']}".split('\n')
             ]
-    return f"{product_type['type']} {price} \n{product_type['additionalInfo']}"
+    return f"{product_type['type']} {price} \n{product_type['bonus']}"
 
 
 def divide_chunks(l, n):
@@ -50,186 +52,15 @@ def create_checkbox_opt(b):
     return options
 
 
-def initialize(current_listgroup):
-    status_data = {
-        'default': current_listgroup,
-        'positions': {},
-    }
-    for i, lst in enumerate(current_listgroup):
-        status_data['positions'][i] = {}
-        for items in lst:
-            if len(items.strip().split()) > 2:
-                l = divide_chunks(items.strip().split(), 2)
-                for j, el in enumerate(l):
-                    status_data['positions'][i][f'{el[1]}'] = int(el[0])
-
-            else:
-                status_data['positions'][i][f'{items.strip().split()[1]}'] = int(
-                    items.strip().split()[0])
-    return status_data
-
-
-def subtract_selected_v2(current_listgroup, cards_values_all, selected_vals, cards_options):
-    listgroup_df = pd.DataFrame.from_dict(current_listgroup)
-    cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
-
-    selected_type_id_int = list(selected_vals.keys())
-    for item_id in selected_type_id_int:
-        selected_row = cards_vals_df.loc[cards_vals_df['type_id_int'] == item_id]
-        # Check if type_id_str is available in listgroup_df
-        available_items = listgroup_df.loc[listgroup_df['type_id_str']
-                                           == selected_row['type_id_str'].values[0]]
-        if not available_items.empty:
-            mask = (listgroup_df['type_id_str'] == selected_row['type_id_str'].values[0]) & (
-                listgroup_df['quantity'] >= selected_row['quantity'].values[0])
-            idx = mask.idxmax() if mask.any() else np.repeat(False, len(listgroup_df))
-            listgroup_df.loc[idx, 'quantity'] = listgroup_df.loc[idx,
-                                                                 'quantity'] - selected_row['quantity'].values[0]
-        else:
-            print(
-                f'disable this item: {selected_row["type_id_str"].values[0]} (not item available or quantity > stock)')
-
-    for i, card_item in cards_vals_df.iterrows():
-        total = sum(listgroup_df.loc[listgroup_df['type_id_str']
-                                     == card_item['type_id_str']]['quantity'])
-        if card_item['quantity'] > total and card_item['type_id_int'] not in selected_type_id_int:
-            cards_options[i][0]['disabled'] = True
-        else:
-            cards_options[i][0]['disabled'] = False
-
-    return listgroup_df, cards_options
-
-
-def subtract_selected_v3(input_data, substruct_if_clicked):
-    listgroup_df = pd.DataFrame.from_dict(
-        input_data['initial']['listgroup_values'])
-    cards_vals_df = pd.DataFrame.from_dict(
-        input_data['initial']['cards_values'])
-    selected_type_id_int = list(substruct_if_clicked.keys())
-    for item_id in selected_type_id_int:
-        selected_options = cards_vals_df.loc[(cards_vals_df['type_id_int'] == int(item_id.split(
-            '_')[0])) & (cards_vals_df['type_id_str'].isin(substruct_if_clicked[item_id]))]
-        # Check if type_id_str is available in listgroup_df
-        for i, selected_row in selected_options.iterrows():
-            available_items = listgroup_df.loc[listgroup_df['type_id_str']
-                                               == selected_row['type_id_str']]
-            if not available_items.empty:
-                mask = (listgroup_df['type_id_str'] == selected_row['type_id_str']) & (
-                    listgroup_df['production'] >= selected_row['quantity'])
-                idx = mask.idxmax() if mask.any() else np.repeat(False, len(listgroup_df))
-                #listgroup_df.loc[idx, 'quantity'] = listgroup_df.loc[idx, 'quantity'] - selected_row['quantity']
-                listgroup_df.loc[idx, 'production'] = listgroup_df.loc[idx,
-                                                                       'production'] - selected_row['quantity']
-            else:
-                print(
-                    f'disable this item: {selected_row["type_id_str"].values[0]} (not item available or quantity > stock)')
-
-    return listgroup_df
-
-
-def commit_subtraction_v2(cards_values_all, cards_subtraction_details, substruct_items):
-    cards_vals_df = pd.DataFrame.from_dict(cards_values_all)
-
-    cards_subtraction_details = cards_subtraction_details or {}
-    cards_subtraction_details = pd.DataFrame.from_dict(
-        cards_subtraction_details)
-
-    for card in substruct_items:
-        card_id = int(card.split('_')[0])
-        data = cards_vals_df.loc[
-            (cards_vals_df['type_id_int'] == int(card.split('_')[0])) &
-            (cards_vals_df['type_id_str'].isin(
-                substruct_items[card]))
-        ]
-        if not cards_subtraction_details.empty:
-            if card_id not in cards_subtraction_details['type_id_int'].tolist():
-                cards_subtraction_details = cards_subtraction_details.append(
-                    data, ignore_index=True)
-        else:
-            cards_subtraction_details = cards_subtraction_details.append(
-                data, ignore_index=True)
-
-    return cards_subtraction_details.to_dict('records')
-
-
 def get_tot_quantity(item):
     return type_line_break(item, btns=True, quantity=False)
-
-
-def process_input_listgroup(data_elements):
-    quantity = {}
-    cards_vals = {}
-    for i, d in enumerate(data_elements):
-        # split string after every number or '+' operation
-        cards_vals[i] = []
-        #d = re.split(r'\s?(\d+|\+)\s?', d)
-        d = re.split(r'\s?(\d+)\s?', d)
-        # add up all elements separately
-        for idx, value in enumerate(d):
-            if value.isdigit() or value == '+':
-                if value == '+':
-                    count = 1
-                else:
-                    count = int(value)
-
-                data = d[idx + 1]
-                cards_vals[i].append({
-                    f'{data}': count
-                })
-
-                quantity[data] = quantity.get(data, 0) + count
-
-    df = pd.DataFrame()
-    df['type'] = list(quantity.keys())
-    df['quantity'] = list(quantity.values())
-    df['type_id_str'] = df['type'].str.lower().str.replace(' ', '_')
-    df['type_id_int'] = list(range(len(df['type'])))
-
-    # If the select any cards selected field = 1
-    return df
-
-
-def process_input_cards(data_elements, cards_headers):
-    cards_vals = pd.DataFrame()
-    for i, (d, header) in enumerate(zip(data_elements, cards_headers)):
-        # split string after every number or '+' operation
-        #d = re.split(r'\s?(\d+|\+)\s?', d)
-        d = re.split(r'\s?(\d+)\s?', d)
-        # add up all elements separately
-        opt_id = 0
-        for idx, value in enumerate(d):
-            if value.isdigit() or value == '+':
-                if value == '+':
-                    count = 1
-                else:
-                    count = int(value)
-
-                data = d[idx + 1]
-
-                cards_vals = cards_vals.append({
-                    'type': f'{value} {data}',
-                    'type_only': data,
-                    'quantity': count,
-                    'type_id_str': data.lower().strip().replace(' ', '_'),
-                    'type_id_int': int(i),
-                    'opt_id': int(opt_id),
-                    'card_datetime': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M'),
-                    'card_date': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M').date(),
-                    'card_time': datetime.strptime(' '.join(header.split()[:2]), '%d-%b-%y %H:%M').time(),
-                    'waitress': ' '.join(header.split()[2:-1]),
-                    'process': int(header.split()[-1])
-                }, ignore_index=True)
-                opt_id += 1
-
-    # If the select any cards selected field = 1
-    return cards_vals
 
 
 def get_bonus_sepator(p):
     # The default separtor is "#"
     bonus_separtor = '#'
-    #for p in card_body_input:
-    if '#' in p: 
+    # for p in card_body_input:
+    if '#' in p:
         return bonus_separtor
     if '+ ' in p:
         for string in p.split('+ '):
@@ -238,486 +69,93 @@ def get_bonus_sepator(p):
                 break
     elif '&' in p:
         bonus_separtor = '&'
-        #break
+        # break
     elif 'mit' in p:
         bonus_separtor = 'mit'
-        #break
+        # break
     elif 'ohne' in p:
         bonus_separtor = 'ohne'
-        #break
+        # break
     return bonus_separtor
-
-
-def process_input_cards_v2(card_body_input, card_header_input):
-    bonus_separtor = get_bonus_sepator(card_body_input)
-
-    def get_type_details(chunk):
-        result = {}
-
-        prices = re.findall("\d+\.\d+", chunk)
-        if prices:
-            price = float(prices[0])
-        quantities = re.findall(r'\d+', chunk)
-        if quantities:
-            quantity = int(quantities[0])
-        food_type_only = ' '.join(chunk.split()[1:-1])
-        result = {
-            'type': f'{quantity}x {food_type_only}',
-            'type_only': food_type_only,
-            'quantity': quantity,
-            'price': price,
-            # 'type_id_str': f'{food_type_only}_{price}'.lower().strip().replace(' ', '_'),
-            # 'opt_id': int(opt_id)
-        }
-        return result
-
-    def generate_opt_ids(df):
-        result = pd.DataFrame()
-        for type_id_int in df['type_id_int'].drop_duplicates():
-            chunk_df = df.loc[df['type_id_int'] == type_id_int].copy()
-            chunk_df['opt_id'] = list(range(len(chunk_df)))
-            result = result.append(chunk_df, ignore_index=True)
-        return result
-
-    cards = []
-    for i in card_body_input:
-        cards.append(re.split(r'\s(?=\d+. Gang|\d+x)', i))
-
-    # I'm not very good on regex expressions; so i'll follow the tranditional way:
-    df = pd.DataFrame()
-    row = {}
-    for i, (part, header) in enumerate(zip(cards, card_header_input)):
-        for p in part:
-            if 'gang' in p.lower():
-                row = {
-                    'gang_title': p,
-                    'gang_number': int(re.findall(r'\d+', p)[0]),
-                    'gang_id': p.lower().replace(' ', '_')
-                }
-            else:
-                additionalInfo = []
-                p_chunked = re.split(f'.(?={bonus_separtor})', p)
-
-                for chunk in p_chunked:
-                    if bonus_separtor in chunk:
-                        additionalInfo.append(chunk)
-                    else:
-                        result = get_type_details(chunk)
-                row['type_id_str'] = hash_name(p)
-                row['additionalInfo'] = '\n'.join(additionalInfo)
-                row['type_id_int'] = i
-                row['card_datetime'] = datetime.strptime(
-                    ' '.join(header.split()[:2]), '%d-%b-%y %H:%M')
-                row['card_date'] = row['card_datetime'].date()
-                row['card_time'] = row['card_datetime'].time()
-                if header.split()[2].isnumeric():
-                    # Card index
-                    row['process'] = int(header.split()[2])
-                    # Card Phrase
-                    row['waitress'] = ' '.join(header.split()[3:])
-                else:
-                    row['waitress'] = ' '.join(header.split()[2:-1])
-                    row['process'] = int(header.split()[-1])
-
-                row.update(result)
-
-                df = df.append(row, ignore_index=True)
-
-    df = generate_opt_ids(df)
-
-    return df
-
-
-def process_input_listgroup_v2(card_body_input):
-
-    bonus_separtor = get_bonus_sepator(card_body_input)
-
-    def get_type_details(chunk):
-        result = {}
-
-        price = re.findall("\d+\.\d+", chunk)
-        if price:
-            price = float(price[0])
-        quantities = re.findall(r'\d+', chunk)
-        if quantities:
-            quantity = int(quantities[0])
-        food_type_only = ' '.join(chunk.split()[1:-1])
-        result = {
-            'type': food_type_only,
-            'quantity': quantity,
-            'price': price,
-            # 'type_id_str': f'{food_type_only}_{price}'.lower().strip().replace(' ', '_'),
-        }
-        return result
-
-    cards = []
-    for i in card_body_input:
-        cards.append(re.split(r'\s(?=\d+. Gang|\d+x)', i))
-
-    # I'm not very good on regex expressions; so i'll follow the tranditional way:
-    df = pd.DataFrame()
-    row = {}
-    for i, part in enumerate(cards):
-        for p in part:
-            if 'gang' in p.lower():
-                continue
-            else:
-                additionalInfo = []
-                p_chunked = re.split(f'.(?={bonus_separtor})', p)
-                for chunk in p_chunked:
-                    if bonus_separtor in chunk:
-                        additionalInfo.append(chunk)
-                    else:
-                        result = get_type_details(chunk)
-
-                row['additionalInfo'] = '\n'.join(additionalInfo)
-                row['type_id_str'] = hash_name(p)
-                row.update(result)
-
-                df = df.append(row, ignore_index=True)
-    df = df.groupby(['type_id_str']).agg({
-        'quantity': 'sum',
-        'price': 'sum',
-        'type': 'last',
-        'additionalInfo': 'last'
-    }).reset_index()
-    df['type_id_int'] = list(range(len(df['type'])))
-    df['production'] = 0
-    return df
-
-
-def process_input_lstgrp(data_elements):
-    lstgrp = pd.DataFrame()
-    for i, d in enumerate(data_elements):
-        # split string after every number or '+' operation
-        d = re.split(r'\s?(\d+|\+)\s?', d)
-        # add up all elements separately
-        opt_id = 0
-        for idx, value in enumerate(d):
-            if value.isdigit() or value == '+':
-                if value == '+':
-                    count = 1
-                else:
-                    count = int(value)
-
-                data = d[idx + 1]
-
-                lstgrp = lstgrp.append({
-                    'type': f'{value} {data}',
-                    'type_only': data,
-                    'quantity': count,
-                    'type_id_str': data.lower().strip().replace(' ', '_'),
-                    'type_id_int': int(i),
-                    'opt_id': int(opt_id),
-                }, ignore_index=True)
-                opt_id += 1
-
-    # Aggr items from the same grp
-    lstgrp = lstgrp.groupby(['type_id_int', 'type_id_str']).agg({
-        'quantity': 'sum',
-        'type': 'last',
-        'type_only': 'last',
-    }).reset_index()
-    # If the select any cards selected field = 1
-    return lstgrp
-
-
-def id_format(item):
-    item = ' '.join(item.split()[1:])
-    return item.lower().strip().replace(' ', '_')
-
-
-def click_list_handler(card_values, card_options, context, input_data):
-    df = pd.DataFrame.from_dict(input_data['initial']['cards_values'])
-    process_done = False
-    for idx, (vals, opts) in enumerate(zip(card_values, card_options)):
-        for i, opt in enumerate(opts):
-            if i in vals:
-                continue
-            else:
-                if opt['value'] == context['index']:
-                    card_values[idx].append(opt['value'])
-                    gang_number = df.loc[
-                        (df['type_id_str'] == opt['value']) &
-                        (df['type_id_int'] == idx)
-                    ]
-                    if not gang_number.empty:
-                        gang_number = gang_number['gang_number'].values[0]
-                        df = df.loc[
-                            (df['type_id_int'] == idx) &
-                            (df['gang_number'] == gang_number)
-
-                        ]
-
-                        if len([x for x in card_values[idx] if x in df['type_id_str'].tolist()]) == len(df):
-                            card_values[idx].append(
-                                f'gang_{gang_number}_card_{idx}')
-                    process_done = True
-                    break
-        if process_done:
-            break
-
-    return card_values
-
-
-def click_list_handler_1(current_listgroup, cards_values_all, substruct_if_clicked, context):
-    listgroup_df = pd.DataFrame.from_dict(current_listgroup)
-    cards_values = pd.DataFrame.from_dict(cards_values_all)
-
-    item = listgroup_df.loc[listgroup_df['type_id_str'] == context['index']]
-    cards_items = cards_values.loc[cards_values['type_id_str']
-                                   == item['type_id_str'].values[0]]
-    for card_idx in cards_items['type_id_int'].drop_duplicates():
-        if str(card_idx) in [x.split('_')[0] for x in substruct_if_clicked]:
-            index = [s for s in substruct_if_clicked if str(
-                card_idx) == s.split('_')[0]][0]
-            opt_id = cards_items.loc[cards_items['type_id_int']
-                                     == card_idx]['type_id_str'].values[0]
-            if opt_id in substruct_if_clicked[index]:
-                continue
-            else:
-                # substruct_if_clicked[index].append(opt_id)
-                return index.split('_')[0]
-                # break
-        else:
-            #substruct_if_clicked[index] = [cards_items.loc[cards_items['type_id_int'] == card_idx]['type_id_str'].values[0]]
-            return str(card_idx)
-            break
-
-    return None
-
-
-def get_gang_subelements(cards_values_all, substruct_if_clicked, context_values, idx):
-    card_df = pd.DataFrame.from_dict(cards_values_all)
-    available_gangs = card_df['gang_number'].drop_duplicates().tolist()
-    for gang_number in available_gangs:
-        all_sub_elements = card_df.loc[
-            (card_df['type_id_int'] == int(idx.split('_')[0])) &
-            (card_df['gang_number'] == gang_number)]['type_id_str'].tolist()
-
-        if f'gang_{gang_number}_card_{int(idx.split("_")[0])}' in context_values:
-
-            if str(idx) in substruct_if_clicked and substruct_if_clicked[str(idx)]:
-                substruct_if_clicked[str(
-                    idx)] += (all_sub_elements + [f'gang_{gang_number}_card_{int(idx.split("_")[0])}'])
-            else:
-                substruct_if_clicked[str(idx)] = (
-                    all_sub_elements + [f'gang_{gang_number}_card_{int(idx.split("_")[0])}'])
-        else:
-            if str(idx) in substruct_if_clicked:
-                substruct_if_clicked[str(idx)] = [
-                    x for x in substruct_if_clicked[str(idx)]
-                    if x not in (all_sub_elements + [f'gang_{gang_number}_card_{int(idx.split("_")[0])}'])
-                ]
-            else:
-                substruct_if_clicked[str(idx)] = []
-    # for val in context_values:
-    #     if 'gang' in val:
-    #         gang_number = int(val.split('_')[1])
-    #         card_idx = int(val.split('_')[-1])
-
-    #         all_sub_elements = card_df.loc[
-    #          (card_df['type_id_int'] == card_idx) &
-    #          (card_df['gang_number'] == gang_number)]['type_id_str'].tolist()
-    #         if str(card_idx) in substruct_if_clicked and substruct_if_clicked[str(card_idx)]:
-    #             substruct_if_clicked[str(card_idx)] += all_sub_elements
-    #         else:
-    #             substruct_if_clicked[str(card_idx)] = all_sub_elements
-
-    #     else:
-    #         pass
-
-    # for gang in gang_x:
-    #     gang_number = int(gang.split('_')[1])
-    #     card_idx = int(gang.split('_')[-1])
-    #     card_df = pd.DataFrame.from_dict(cards_values_all)
-    #     all_sub_elements = card_df.loc[
-    #         (card_df['type_id_int'] == card_idx) &
-    #         (card_df['gang_number'] == gang_number)
-    #     ]['type_id_str'].tolist()
-    #     if str(card_idx) in substruct_if_clicked and substruct_if_clicked[str(card_idx)]:
-    #         substruct_if_clicked[str(card_idx)] += all_sub_elements
-    #     else:
-    #         substruct_if_clicked[str(card_idx)] = all_sub_elements
-    #     substruct_if_clicked[str(card_idx)] = list(dict.fromkeys(substruct_if_clicked[str(card_idx)]))
-
-    substruct_if_clicked[str(idx)] = list(
-        dict.fromkeys(substruct_if_clicked[str(idx)]))
-
-    return substruct_if_clicked
-
-
-def init_substruct_if_clicked(context):
-    substruct_if_clicked = {}
-    for d in context:
-        ids = json.loads(d['prop_id'].split('.')[0])
-        if ids['id'] == 'card_value':
-            substruct_if_clicked[ids['index']] = []
-
-    return substruct_if_clicked
-
-
-def gang_checker(substruct_if_clicked, cards, old_values, new_values, context_dict):
-    if len(old_values) > len(new_values):
-        diff = list(set(old_values) - set(new_values))
-        if diff and 'gang_' in diff[0]:
-            # deselect all values of that gang..
-            gang_items = cards.loc[
-                (cards['type_id_int'] == int(diff[0].split('_')[-1])) &
-                (cards['gang_number'] == int(diff[0].split('_')[1]))
-            ]['type_id_str'].tolist()
-            substruct_if_clicked[context_dict['index']] = [
-                x for x in new_values if x not in gang_items]
-            return substruct_if_clicked
-        else:
-            return substruct_if_clicked
-
-    for type_id_int in cards['type_id_int'].drop_duplicates():
-        selected = [val for key, val in substruct_if_clicked.items()
-                    if f'{int(type_id_int)}_' in key][0]
-        for gang_number in cards.loc[cards['type_id_int'] == type_id_int]['gang_number'].drop_duplicates():
-            gang_subselements = cards.loc[
-                (cards['type_id_int'] == type_id_int) &
-                (cards['gang_number'] == gang_number)
-            ]
-
-            key = list(dict(filter(
-                lambda item: f'{int(type_id_int)}_' in item[0], substruct_if_clicked.items())).keys())[0]
-            gang_id = f"gang_{int(gang_subselements['gang_number'].values[0])}_card_{int(type_id_int)}"
-
-            if all(item in selected for item in gang_subselements['type_id_str'].tolist()) \
-                    and gang_id not in selected:
-                substruct_if_clicked[key] += [gang_id]
-
-            elif gang_id in selected:
-                substruct_if_clicked[key] += gang_subselements['type_id_str'].tolist()
-
-            substruct_if_clicked[key] = list(
-                dict.fromkeys(substruct_if_clicked[key]))
-
-    return substruct_if_clicked
-
-
-def subtract(cards, substruct_if_clicked, context_dict, card_body):
-    if context_dict['id'] == 'lst_item_btn':
-        type_id_str = context_dict['index']
-        # selects all the elemets with in cards that have this type_id_str
-        available_items = cards.loc[cards['type_id_str'] == type_id_str]
-        for type_id_int in available_items['type_id_int'].drop_duplicates():
-            selected = [val for key, val in substruct_if_clicked.items(
-            ) if f'{int(type_id_int)}_' in key][0]
-            # if this item is already crossed out... : Do nothing
-            # But if not:
-            if type_id_str not in selected:
-                key = list(dict(filter(
-                    lambda item: f'{int(type_id_int)}_' in item[0], substruct_if_clicked.items())).keys())[0]
-                if card_body[int(key.split('_')[1])] != 'disabled':
-                    substruct_if_clicked[key] += [type_id_str]
-                    substruct_if_clicked[key] = list(
-                        dict.fromkeys(substruct_if_clicked[key]))
-                    break
-
-    return substruct_if_clicked
-
 
 def update_val(row, item):
     if row['type_id_str'] == item['type_id_str']:
-        row['production'] += item['quantity']
-        row['quantity'] -= item['quantity']
+        row['production'] += item['available_quantity']
+        row['available_quantity'] -= item['available_quantity']
     return row
 
 
-def substruct_all_card_items(cards, lists, card_idx):
-    card_item = cards.loc[cards['type_id_int'] == int(card_idx.split('_')[1])]
-    for i, item in card_item.iterrows():
-        lists = lists.apply(lambda row: update_val(row, item), axis=1)
-    #substruct_items[card_idx] = card_item['type_id_str'].tolist()
-    # return substruct_items
+def update_production(cards, current_production, checked_items=[]):
+    def update(row):
+        if row['type_id_int'] == current_production:
+            return row['available_quantity']
+        return row['production']
 
-    return lists.to_dict('records')
+    def update_2(row):
+        if row['type_id_str'] in checked_items:
+            return row['production'] - row['available_quantity']
+        return row['production']
+
+    cards['production'] = cards.apply(update, axis=1)
+    #cards['production'] = cards.apply(update_2, axis=1)
+    return cards
 
 
-def get_opts_vals(substruct_if_clicked, vals):
+def get_opts_vals(substruct_if_clicked, vals, cards):
     for card in substruct_if_clicked:
-        vals[int(card.split('_')[1])] = substruct_if_clicked[card]
+        if int(card.split('_')[1])+1 <= len(cards) and int(card.split('_')[0]) in cards['type_id_int'].tolist():
+            vals[int(card.split('_')[1])] = substruct_if_clicked[card]
 
     return vals
 
 
-def disable_commit_btns(card_values, substruct_if_clicked, card_options):
-    btns_visibility = []
-    for i, opts in enumerate(card_values):
-        idx = [x for x in list(substruct_if_clicked.keys()) if f'_{i}' in x]
-        current_vals = substruct_if_clicked.get(idx[0], [])
-        if opts:
-            if len(current_vals) == len(card_options[i]):
-                btns_visibility.append(False)
-            else:
-                btns_visibility.append(True)
-        else:
-            btns_visibility.append(False)
-
-
-def card_gangs_count(card_df):
-    return len(card_df.drop_duplicates(subset=['gang_number']))
-
-
-def check_if_selected_all(cards, substruct_if_clicked, disabled):
-    for card in substruct_if_clicked:
-        card_df = cards.loc[cards['type_id_int'] == int(card.split('_')[0])]
-        items_count = len(card_df) + card_gangs_count(card_df)
-        if items_count == len(substruct_if_clicked[card]) or len(substruct_if_clicked[card]) == 0:
-            disabled[int(card.split('_')[1])] = False
-        else:
-            disabled[int(card.split('_')[1])] = True
-
-    return disabled
-
-
-def is_date(info='15-Apr-21'): 
-    months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Juni', 'Juli', 'Aug', 'Sept', 'Okt', 'Nov', 'Dez']
+def is_date(info='15-Apr-21'):
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Juni',
+              'Juli', 'Aug', 'Sept', 'Okt', 'Nov', 'Dez']
     infos = info.split('-')
-    if len(infos) == 3 and infos[0].isnumeric() and infos[2].isnumeric() and infos[1] in months: 
+    if len(infos) == 3 and infos[0].isnumeric() and infos[2].isnumeric() and infos[1] in months:
         return True
     return False
 
+
 def extract_header_infos(header='PIZZA&PASTA 15-Apr-21 15:55 5 Restaurant Hypersoft 12'):
-    # Since the order of the infos is not fixed between the input header, 
-    # we have to find a trick to extract this infos correctly, 
+    # Since the order of the infos is not fixed between the input header,
+    # we have to find a trick to extract this infos correctly,
     # so we will take the date index as a reference to identify the other infos.
     infos_dict = {
-            'card_datetime': '', 
-            'card_date': '',
-            'card_time': '',
-            'station': '',
-            'waitress': '', 
-            'process': '', 
-            'table': ''
-        }
+        'card_datetime': '',
+        'card_date': '',
+        'card_time': '',
+        'station': '',
+        'waitress': '',
+        'process': '',
+        'table': ''
+    }
     infos = header.split()
-    for info in infos: 
-        if is_date(info): 
+    for info in infos:
+        if is_date(info):
             date_idx = infos.index(info)
             break
-    
-    infos_dict['card_datetime'] = datetime.strptime(f'{infos[date_idx]} {infos[date_idx+1]}', '%d-%b-%y %H:%M')
+
+    infos_dict['card_datetime'] = datetime.strptime(
+        f'{infos[date_idx]} {infos[date_idx+1]}', '%d-%b-%y %H:%M')
     infos_dict['card_date'] = infos_dict['card_datetime'].date()
     infos_dict['card_time'] = infos_dict['card_datetime'].time()
     # Check what info available in the left of the date index.
     target_idx = date_idx-1
-    if target_idx >= 0: 
+    if target_idx >= 0:
         if infos[target_idx].isnumeric():
             # Vorgang/Process
             infos_dict['process'] = int(infos[target_idx])
-        else: 
+        else:
             # Station
             infos_dict['station'] = ' '.join(infos[:target_idx+1])
     else:
         pass
-    
+
     # Check what info available on the right of the date index.
     target_idx = date_idx+2
-    if len(infos) > target_idx: 
+    if len(infos) > target_idx:
         process = False
         for idx in range(target_idx, len(infos), 1):
             if infos[target_idx].isnumeric() and not process:
@@ -725,15 +163,16 @@ def extract_header_infos(header='PIZZA&PASTA 15-Apr-21 15:55 5 Restaurant Hypers
                 infos_dict['process'] = int(infos[target_idx])
             elif not infos[idx].isnumeric():
                 infos_dict['waitress'] += f' {infos[idx]}'
-            else: 
+            else:
                 infos_dict['table'] = int(infos[idx])
             process = True
-    
+
     infos_dict['waitress'] = infos_dict['waitress'].strip()
-    
+
     return infos_dict
 
-def get_type_details(chunk):  
+
+def get_type_details(chunk):
     result = {}
     price = 0
     quantity = 0
@@ -753,10 +192,11 @@ def get_type_details(chunk):
     result = {
         'type': f'{quantity}x {food_type_only}',
         'type_only': food_type_only.strip(),
-        'quantity': quantity,
+        'available_quantity': quantity,
         'price': price,
     }
     return result
+
 
 def generate_opt_ids(df):
     result = pd.DataFrame()
@@ -768,7 +208,7 @@ def generate_opt_ids(df):
 
 
 # infos = '1. Gang 1x Ribollita 6.50/ 1 #Standard 6.50/ 1 1x Tomatencremesuppe 6.50/ 2 #Standard 6.50/ 2 2. Gang 6.50/ 2 6.50/ 2 1x Chili con Carne 8.50/ 2 #Standard 8.50/ 2 '
-def extract_card_info(infos, header, idx): 
+def extract_card_info(infos, header, idx):
     body = infos.replace(header, '').strip()
     body_infos = re.split(r'\s(?=\d+. Gang|\d+x)', body)
     df = pd.DataFrame()
@@ -779,39 +219,39 @@ def extract_card_info(infos, header, idx):
     }
     header_success = False
     for info in body_infos:
-        if re.search(r'(?=[1-9]+. Gang)', info): 
+        if re.search(r'(?=[1-9]+. Gang)', info):
             gang_info = ' '.join(info.split()[:info.index('Gang')-1])
             row['gang_title'] = gang_info
             row['gang_number'] = int(re.findall(r'\d+', gang_info)[0])
             row['gang_id'] = gang_info.lower().replace(' ', '_')
-        
-        elif re.search(r'(\d+x)', info): 
-            additionalInfo = []
+
+        elif re.search(r'(\d+x)', info):
+            bonus = []
             bonus_separtor = get_bonus_sepator(info)
             if bonus_separtor == '+':
                 p_chunked = [
-                    d.replace(bonus_separtor, f'{bonus_separtor} ') 
+                    d.replace(bonus_separtor, f'{bonus_separtor} ')
                     if not f'{bonus_separtor} ' in d
                     else d
                     for d in re.split(f'.(?=\{bonus_separtor})', info)
                 ]
-            else: 
-                 p_chunked = [
-                    d.replace(bonus_separtor, f'{bonus_separtor} ') 
+            else:
+                p_chunked = [
+                    d.replace(bonus_separtor, f'{bonus_separtor} ')
                     if not f'{bonus_separtor} ' in d
                     else d
                     for d in re.split(f'.(?={bonus_separtor})', info)
                 ]
             for chunk in p_chunked:
                 if bonus_separtor in chunk:
-                    additionalInfo.append(chunk)
+                    bonus.append(chunk)
                 else:
                     row.update(get_type_details(chunk))
             row['type_id_str'] = hash_name(info)
-            row['additionalInfo'] = '\n'.join(additionalInfo)
+            row['bonus'] = '\n'.join(bonus)
             row['type_id_int'] = idx
             row['bonus_separtor'] = bonus_separtor
-            if not header_success: 
+            if not header_success:
                 row_dict = extract_header_infos(header)
                 header_success = True
             row.update(row_dict)
@@ -819,20 +259,117 @@ def extract_card_info(infos, header, idx):
     df = generate_opt_ids(df)
     return df
 
-def food_cards_listings(input_data, cards_headers):
+
+def extract_informations(input_data, cards_headers):
     data = pd.DataFrame()
+    last_id = crud_op_db.get_last_card_id()
     for idx, (body, header) in enumerate(zip(input_data, cards_headers)):
-        data = data.append(extract_card_info(body, header, idx), ignore_index=True)
+        data = data.append(extract_card_info(
+            body, header, idx+last_id), ignore_index=True)
     return data
+
 
 def foods_listing(df):
     result = df.groupby(['type_id_str']).agg({
-        'quantity': 'sum',
+        'available_quantity': 'sum',
         'price': 'sum',
         'type': 'last',
         'type_only': 'last',
-        'additionalInfo': 'last',
+        'bonus': 'last',
+        'production': 'sum',
+        'selected': 'sum'
     }).reset_index()
     result['type_id_int'] = range(len(result))
-    result['production'] = 0
+    result['available_quantity'] -= result['production']
     return result
+
+
+def intersection(current, food_tracer):
+    result = pd.merge(
+        current.drop(['available_quantity', 'production', 'selected', 'gang_number'], axis=1), food_tracer, how='left', on=['type_id_int', 'type_id_str']
+    )
+    return result
+
+
+def insert_selected_item(food_tracer, context):
+    value = context[0].get('value', None)
+    context_dict = context[0].get('prop_id', None)
+    context_dict = json.loads(context_dict.split('.')[0])
+    type_id_int = int(context_dict['index'].split('_')[0])
+    food_tracer['selected'] = np.where(
+        food_tracer['type_id_int'] == type_id_int, 0, food_tracer['selected'])
+    for type_id_str in value:
+        if 'gang_' in type_id_str:
+            food_tracer['selected'] = np.where(
+                (food_tracer['type_id_int'] == type_id_int) & (
+                    food_tracer['gang_number'] == int(type_id_str.split('_')[1])),
+                1,
+                food_tracer['selected']
+            )
+        else:
+            food_tracer['selected'] = np.where(
+                (food_tracer['type_id_int'] == type_id_int) & (
+                    food_tracer['type_id_str'] == type_id_str), 1, food_tracer['selected']
+            )
+
+    return food_tracer
+
+
+def insert_selected_item_2(food_tracer, context, current_cards):
+    context_dict = context[0].get('prop_id', None)
+    context_dict = json.loads(context_dict.split('.')[0])
+    type_id_str = context_dict['index'].split('_')[0]
+    available_cards = current_cards.loc[
+        (current_cards['type_id_str'] == type_id_str) &
+        (current_cards['selected'] == 0) &
+        (current_cards['production'] > 0)
+    ]
+    if not available_cards.empty:
+        type_id_int = available_cards['type_id_int'].values[0]
+        food_tracer['selected'] = np.where(
+            (food_tracer['type_id_int'] == type_id_int) & (
+                food_tracer['type_id_str'] == type_id_str), 1, food_tracer['selected']
+        )
+    return food_tracer
+
+def hourly_converter(df, cols, daily=False):
+    if daily:
+        df['sales_created'] = pd.to_datetime(df['sales_created']).map(lambda x: x.replace(hour=0, minute=0, second=0))
+    else:
+        df['sales_created'] = pd.to_datetime(df['sales_created']).map(lambda x: x.replace(minute=0, second=0))
+    df = df.groupby(cols).agg({
+        'price': 'sum', 
+        'available_quantity': 'sum', 
+        'type_only': 'last', 
+        'bonus': 'last'
+    }).reset_index()
+    # mask = df['type_only'].duplicated(keep=False)
+    # df.loc[mask, 'type_only'] += df.groupby('type_only').cumcount().add(1).astype(str)
+    df = df.rename(columns={
+        'price': 'Price', 
+        'available_quantity': 'Total quantity', 
+        'type_only': 'Food', 
+        'bonus': 'Bonus', 
+        'sales_created': 'Date', 
+        'table': 'Table'
+    })
+    
+    return df
+
+
+def groupdf(df):
+    df = df.groupby(['type_id_str']).agg({
+        'price': 'sum', 
+        'available_quantity': 'sum', 
+        'type_only': 'last'
+    }).reset_index()
+    df = df.rename(columns={
+        'price': 'Total price', 
+        'available_quantity': 'Total quantity', 
+        'type_only': 'Food'
+    })
+
+    mask = df['Food'].duplicated(keep=False)
+    df.loc[mask, 'Food'] += df.groupby('Food').cumcount().add(1).astype(str)
+    
+    return df

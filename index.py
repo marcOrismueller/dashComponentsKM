@@ -1,4 +1,5 @@
 import dash_core_components as dcc
+from dash_core_components.Store import Store
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from app import app, login_manager, User
@@ -8,15 +9,14 @@ from flask_login import current_user, logout_user
 
 app.layout = html.Div([
     html.Div(id='logout'),
-    dcc.Store(id='filtred_cards'), 
+    dcc.Store(id='filter_options'),
+    dcc.Store(id='pagination_status'),
+    dcc.Store(id='food_tracer'),
     dcc.Store(id='filtred_cards_tmp'), 
-    dcc.Store(id='input_data', storage_type='session'), 
-    dcc.Store(id='historical_subtraction'),
-    dcc.Store(id='substruct_items'),
-    dcc.Store(id='gang_notifier'),
-    dcc.Store(id='isFiltered'),
-    dcc.Store(id='start_data_holder'),
-    dcc.Location(id='url', refresh=False),
+    dcc.Store(id='input_data'), 
+    dcc.Store(id='historical_sales'),
+    dcc.Store(id='filter_result'),
+    dcc.Location(id='url', refresh=True),
     components.navbar(current_user),
     html.Div(
         id='page-content', 
@@ -60,7 +60,7 @@ def display_page(pathname):
     elif pathname == '/subtraction-details':
         if not current_user.is_authenticated: 
             return auth_login.layout, components.build_a_link(pathname, current_user)
-        return details.build_page_2(), components.build_a_link(pathname, current_user)
+        return details.layout, components.build_a_link(pathname, current_user)
     
     else:
         return html.H3('404 "URL not found"'), components.build_a_link(pathname, current_user)
@@ -68,4 +68,4 @@ def display_page(pathname):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=False, threaded=True)

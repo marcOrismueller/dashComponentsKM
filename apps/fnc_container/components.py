@@ -120,7 +120,7 @@ def build_a_link(current_page, current_user):
         # make a reuseable navitem for the different examples
         nav_item = dbc.NavItem(
             dbc.Button("Filter", outline=True, color="secondary",
-                       className="mr-1", id="btn_filter_modal"),
+                       className="mr-1", id="btn_filter_modal", n_clicks=0),
             style={'marginRight': '30px'}
         )
         links = dbc.Nav([nav_item, dropdown], className="ml-auto", navbar=True)
@@ -224,6 +224,7 @@ def build_pie(df, values, names, color='type_only', height=350):
         values=values,
         names=names,
         color=color,
+        #hover_data=['Total price']
     )
     fig.update_traces(textposition='inside')
     fig.update_layout(
@@ -235,6 +236,49 @@ def build_pie(df, values, names, color='type_only', height=350):
         title_x=0.5,
         plot_bgcolor="#F9F9F9",
         paper_bgcolor="#F9F9F9",
+    )
+    return fig
+
+def line_chart(df, x="Date", y="Total quantity", color='Table', color_discrete_map=None): 
+    fig = px.line(df, x=x, y=y, color=color)
+    fig.update_layout(
+        margin=dict(t=0, r=0, b=20, l=0),
+        autosize=True,
+        uniformtext_minsize=12,
+        uniformtext_mode='hide',
+        title_x=0.5,
+        plot_bgcolor="#F9F9F9",
+        paper_bgcolor="#F9F9F9",
+        height=500, 
+        template="plotly_white",
+        
+        xaxis=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1,
+                     label="1m",
+                     step="month",
+                     stepmode="backward"),
+                dict(count=6,
+                     label="6m",
+                     step="month",
+                     stepmode="backward"),
+                dict(count=1,
+                     label="YTD",
+                     step="year",
+                     stepmode="todate"),
+                dict(count=1,
+                     label="1y",
+                     step="year",
+                     stepmode="backward"),
+                dict(step="all")
+            ])
+        ),
+        rangeslider=dict(
+            visible=True
+        ),
+        type="date"
+        )
     )
     return fig
 
@@ -269,7 +313,7 @@ def get_cards_details(df, n_for_each_row=2):
                                 html.Div(dcc.Graph(figure=build_pie(
                                     df.loc[df['type_id_int'] ==
                                            card['type_id_int']],
-                                    'quantity',
+                                    'available_quantity',
                                     'type_only',
                                     'type_only',
                                     250,
@@ -406,8 +450,7 @@ filter_modal = dbc.Modal(
                             options=[
                                 {"label": "Date", "value": 'card_date'},
                                 {"label": "Phrase", "value": 'waitress'},
-                                {"label": 'Card Number',
-                                 'value': 'process'}
+                                {"label": 'Card Number', 'value': 'process'}
                             ],
                             value='process',
                             id="sort_by",
@@ -436,10 +479,127 @@ filter_modal = dbc.Modal(
         ),
         dbc.ModalFooter(
             dbc.Button(
-                "Process", id="apply_filter", className="ml-auto"
+                "Process", id="apply_filter", className="ml-auto", n_clicks=0
             )
         ),
     ],
     id="filter_modal",
     centered=True,
 )
+
+def pagination(): 
+    paginations = html.Div([
+        html.Div(dbc.Button('Previous', id='prev', outline=True, n_clicks=0)), 
+        html.Div(dbc.Button('Next', id='next', outline=True, n_clicks=0))
+    ], className='row')
+
+    return paginations
+
+def no_data_toast(): 
+    toast = html.Div(children=[
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.H4('No Data available ..! please Updoad some foods data.'),
+                        ], className='form-row', style={'marginTop': '30px'}),
+                    ]),
+                    html.Div([
+                        html.A(dbc.Button('Upload Data', className='submit'), href='/load-data')
+                    ])
+                ], className='form-left')
+            ], className='form-detail')
+        ], className='form-v10-content', style={'maxWidth': '600px'})
+    ], className='page-content')
+    return toast
+
+def dashboard_filter():
+    filter = html.Div(id='cross-filter-options', children=[
+                    html.P('Filter by date range:', className='control_label'),
+                    html.Div(
+                        dcc.DatePickerRange(
+                            id='date_range_picker',
+                            start_date='',
+                            end_date='',
+                            updatemode='singledate',
+                            display_format='YYYY-MM-DD'
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Filter by specific date:',
+                           className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='date_picker',
+                            multi=True,
+                            options=[],
+                            placeholder='YYYY-MM-DD',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Filter by table index:',
+                           className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='process',
+                            multi=True,
+                            options=[],
+                            placeholder='100 ...',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Filter by table Gang number:',
+                           className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='gang_number',
+                            multi=True,
+                            options=[],
+                            placeholder='1. Gang',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.P('Filter by plate types:',
+                           className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='plate_type',
+                            multi=True,
+                            options=[],
+                            # placeholder='...',
+                            className='dcc_control'
+                        )
+                    ),
+
+                    html.P('Filter by Phrase:', className='control_label'),
+                    html.Div(
+                        dcc.Dropdown(
+                            id='phrase',
+                            multi=True,
+                            options=[],
+                            # placeholder='...',
+                        ),
+                        className='dcc_control'
+                    ),
+
+                    html.Div([
+                        dbc.Button(
+                            'reset',
+                            id='reset_filters',
+                            style={'float': 'right', 'marginRight': '5px'}, 
+                            color='danger'
+                        ),
+                        dbc.Button(
+                            'Apply & Show',
+                            id='apply_filter_2',
+                            style={'float': 'right', 'marginRight': '5px'}, 
+                        )
+                    ], className='dcc_control'), 
+                ], className='pretty_container three columns')
+    
+    return filter

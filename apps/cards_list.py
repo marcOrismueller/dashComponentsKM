@@ -8,9 +8,10 @@ from dash.exceptions import PreventUpdate
 import json
 from app import app
 import pandas as pd
-from apps.fnc_container import helpers as hlp
+from apps.fnc_container import crud_op_db, helpers as hlp
 from apps.fnc_container import components as components
 from datetime import datetime
+from flask_login import current_user
 
 
 def show_items(listgroup_values, mainCallBack=True):
@@ -27,9 +28,9 @@ def show_items(listgroup_values, mainCallBack=True):
                 ],
             )
             for i, x in listgroup_values.iterrows()
-            if x['production'] > 0 or x['quantity'] > 0
+            if x['selected'] == 0
+            #if x['production'] > 0 or x['available_quantity'] > 0
         ]
-
     return dbc.ListGroup(id='show_list', children=[
         dbc.ListGroupItem(
             children=[
@@ -42,7 +43,7 @@ def show_items(listgroup_values, mainCallBack=True):
             ]
         )
         for i, x in listgroup_values.iterrows()
-        if x['production'] > 0 or x['quantity'] > 0
+        if x['production'] > 0 or x['available_quantity'] > 0
     ])
 
 
@@ -61,58 +62,65 @@ def show_cards(cards_values_df):
         return header
 
     cards = html.Div([
-        html.Div([
-            dbc.Card(id={
-                'id': 'card',
-                'index': int(card_id)
-            }, children=[
-                dbc.CardHeader(build_card_header(card_id)),
-                dbc.CardBody(
-                    id={
-                        'id': 'card_body',
+        html.Div(
+            html.Div(
+                id={
+                    'id': 'card_container',
+                    'index': int(card_id)
+                },
+                children=[
+                    dbc.Card(id={
+                        'id': 'card',
                         'index': int(card_id)
-                    },
-                    children=[
-                        html.Div([
-                            dbc.Checklist(
+                    }, children=[
+                        dbc.CardHeader(build_card_header(card_id)),
+                        dbc.CardBody(
+                            id={
+                                'id': 'card_body',
+                                'index': int(card_id)
+                            },
+                            children=[
+                                html.Div([
+                                    dbc.Checklist(
+                                        id={
+                                            'id': 'card_value',
+                                            'index': f'{int(card_id)}_{i}'
+                                        },
+                                        options=hlp.create_checkbox_opt(cards_values_df.loc[
+                                            # & (cards_values_df['gang_number'] == number)
+                                            (cards_values_df['type_id_int'] == card_id)
+                                        ]),
+                                        value=[],
+                                        labelCheckedStyle={
+                                            "textDecoration": 'line-through',
+                                        },
+                                        className='hidden_box',
+                                        labelStyle={},
+
+                                    )])
+                            ],
+                            className='disabled'
+                        ),
+
+                        dbc.CardFooter([
+                            dbc.Button(
+                                "Start",
+                                color='success',
+                                size="lg",
+                                className='m-4',
                                 id={
-                                    'id': 'card_value',
+                                    'id': 'commit_substraction_btn',
                                     'index': f'{int(card_id)}_{i}'
                                 },
-                                options=hlp.create_checkbox_opt(cards_values_df.loc[
-                                    # & (cards_values_df['gang_number'] == number)
-                                    (cards_values_df['type_id_int'] == card_id)
-                                ]),
-                                value=[],
-                                labelCheckedStyle={
-                                    "textDecoration": 'line-through',
-                                },
-                                className='hidden_box',
-                                labelStyle={},
-
-                            )])
-                    ],
-                    className='disabled'
-                ),
-
-                dbc.CardFooter([
-                    dbc.Button(
-                        "Start",
-                        color='success',
-                        size="lg",
-                        className='m-4',
-                        id={
-                            'id': 'commit_substraction_btn',
-                            'index': f'{int(card_id)}_{i}'
-                        },
-                        disabled=False
-                    )],
-                    style={'textAlign': 'center'})
-            ], style={'marginTop': '10px', 'marginRight': '10px', 'whiteSpace': 'pre-line'}, className='card')
-        ])  # , style={'width': '340px'}
-
+                                disabled=False
+                            )],
+                            style={'textAlign': 'center'})
+                    ], style={'marginTop': '10px', 'marginRight': '10px', 'whiteSpace': 'pre-line'}, className='card')
+            ], className='example--item'),  # , style={'width': '340px'}
+            className='.has-row-10'
+        )
         for i, card_id in enumerate(cards_values_df['type_id_int'].drop_duplicates())
-    ], className='grid-container')
+    ], className='grid has-cols-1 is-dense has-cols-xs-1 has-cols-sm-2 has-cols-md-3 has-cols-lg-4')
 
     return cards
 
@@ -122,6 +130,7 @@ layout = html.Div(
     children=[
         components.filter_modal,
         html.Div(children=[
+            html.Div(id='no_data'),
             html.Div([
                 html.Div(
                     children=[
@@ -136,274 +145,312 @@ layout = html.Div(
                 ),
 
                 html.Div([
-                    html.Div([
-                        dbc.CardColumns(id='show_cards')
-                    ])
+                    html.Div(id='show_cards'), 
+                    html.Div(
+                        html.Div([
+                                html.A('❮', style={'marginRight': '5px'}, id='prev', n_clicks=0), 
+                                html.A('❯', id='next', style={'marginRight': '5px'}, n_clicks=0),
+                                html.A('Show All', id='show_all', n_clicks=0)
+                            ], className='pagination')
+                    )
                 ], className='nine columns')
             ], className='row flex-display'),
+
         ]),
-        html.Div(id='gang_test')
     ])
 
 
+# Fetch data from our database
 @app.callback(
-    Output('show_list', 'children'),
-    Output('show_cards', 'children'),
-    Output('gang_notifier', 'data'),
-    Input('input_data', 'data'),
-    Input('filtred_cards', 'data'),
+    Output('input_data', 'data'),
+    Output('pagination_status', 'data'),
+    Output('no_data', 'children'),
+    Input('url', 'pathname'), 
+    Input('prev', 'n_clicks'),
+    Input('next', 'n_clicks'),
+    Input('show_all', 'n_clicks'),
+    Input('filtred_cards_tmp', 'data'),
+    State('pagination_status', 'data'),
+    prevent_initial_call=True
 )
-def show_page(input_data, filtred_cards):  # , filtred_cards
+def fetch_data(pathname, prev, next, show_all, filtred_cards, pagination_status):
+    call_context = dash.callback_context.triggered[0]
+    context = call_context['prop_id'].split('.')[0]
+    if call_context['prop_id'] == 'filtred_cards_tmp.data':
+        if filtred_cards: 
+            cards = pd.DataFrame.from_dict(filtred_cards['food'])
+            return {
+                'metadata': {
+                    'filter': 'filtred_cards_tmp'
+                },
+                'data': {
+                    'cards_values': cards.to_dict('records')
+                }
+            }, pagination_status, ''
+        else: 
+            raise PreventUpdate
+
+    elif not 'url' in call_context['prop_id'] and call_context['value'] > 0: 
+
+        if context == 'next': 
+            # Get the next 10 cards
+            cards_df = crud_op_db.read_food_cards(id_int=pagination_status['last_id'])
+            if not cards_df.empty:
+                left_list_df = hlp.foods_listing(cards_df)
+                pagination_status = {
+                    'first_id': pagination_status['last_id'],
+                    'last_id': max(cards_df['type_id_int'])
+                }
+                return {
+                    'metadata': {
+                        'filter': False
+                    },
+                    'data': {
+                            'cards_values': cards_df.to_dict('records')
+                        }}, pagination_status, ''
+
+        elif context == 'prev': 
+            # get the previous 10 cards
+            cards_df = crud_op_db.read_food_cards(
+                id_int=pagination_status['first_id'], 
+                next=False
+            )
+            if not cards_df.empty:
+                left_list_df = hlp.foods_listing(cards_df)
+                pagination_status = {
+                    'first_id': min(cards_df['type_id_int']),
+                    'last_id': max(cards_df['type_id_int'])
+                }
+                return {
+                    'metadata': {
+                        'filter': False
+                    },
+                    'data': {
+                        'cards_values': cards_df.to_dict('records')
+                        }}, pagination_status, ''
+
+        elif context == 'show_all': 
+            cards_df = crud_op_db.read_food_cards(show_all=True)
+            if not cards_df.empty:
+                left_list_df = hlp.foods_listing(cards_df)
+                pagination_status = {
+                    'first_id': min(cards_df['type_id_int']),
+                    'last_id': max(cards_df['type_id_int'])
+                }
+                return {
+                    'metadata': {
+                        'filter': False
+                    },
+                    'data': {
+                        'cards_values': cards_df.to_dict('records')
+                        }}, pagination_status, ''
+            
+        raise PreventUpdate
+
+    if pathname == '/items-selection' and current_user.is_authenticated:
+        cards_df = crud_op_db.read_food_cards()
+        
+        if not cards_df.empty:
+            left_list_df = hlp.foods_listing(cards_df)
+            pagination_status = {
+                'first_id': min(cards_df['type_id_int']),
+                'last_id': max(cards_df['type_id_int'])
+            }
+            return {
+                'metadata': {
+                        'filter': False
+                    },
+                'data': {
+                    'cards_values': cards_df.to_dict('records')
+                    }}, pagination_status, ''
+        else: 
+            return {}, {}, components.no_data_toast()
+    else:
+        raise PreventUpdate
+
+
+@app.callback(
+    Output('show_cards', 'children'),
+    Input('input_data', 'data')
+)
+def show_page(input_data):
     context = dash.callback_context.triggered
     if context[0]['prop_id'] == '.':
         raise PreventUpdate
     if not input_data:
         raise PreventUpdate
-
-    #input_data = input_data or {}
+    
     input_data = input_data or {}
+    cards_values_df = pd.DataFrame.from_dict(input_data['data'].get('cards_values', []))
 
-    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-    context_value = dash.callback_context.triggered[0]['value']
-    if context == 'filtred_cards' and context_value:
-        input_data = filtred_cards
+    return show_cards(cards_values_df)
 
-    listgroup_values_df = pd.DataFrame.from_dict(
-        input_data['initial'].get('listgroup_values', []))
-    cards_values_df = pd.DataFrame.from_dict(
-        input_data['initial'].get('cards_values', []))
-    gang_notifier = {}
-    for i, card_id in enumerate(cards_values_df['type_id_int'].drop_duplicates()):
-        gang_notifier[f'{card_id}_{i}'] = []
-    return show_items(listgroup_values_df, True), show_cards(cards_values_df), gang_notifier
-
-
+# left list items controller
 @app.callback(
-    Output('start_data_holder', 'data'),
+    Output('show_list', 'children'),
+    Output('food_tracer', 'data'),
+    Input('input_data', 'data'), 
     Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
-    State('input_data', 'data'),
-    #State('filtred_cards', 'data'),
-    State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
-    State('start_data_holder', 'data'),
-    prevent_initial_call=True
-)
-def start_btn_handler(substraction_btn, input_data, substraction_btn_status, start_data_holder):
-    start_data_holder = start_data_holder or input_data
-    context = dash.callback_context.triggered[0]
-    if context:
-        if context['prop_id'] == '.' or not input_data:
-            raise PreventUpdate
-        context_dict = json.loads(
-            dash.callback_context.triggered[0]['prop_id'].split('.')[0])
-        cards = pd.DataFrame.from_dict(
-            start_data_holder['initial']['cards_values'])
-        lists = pd.DataFrame.from_dict(
-            start_data_holder['initial']['listgroup_values'])
-        if context_dict['id'] == 'commit_substraction_btn' and context['value'] is not None:
-            if substraction_btn_status[int(context_dict['index'].split('_')[1])] == 'Start':
-                start_data_holder['initial']['listgroup_values'] = hlp.substruct_all_card_items(
-                    cards,
-                    lists,
-                    context_dict['index']
-                )
-
-            else:
-                raise PreventUpdate
-    return start_data_holder
-
-
-@app.callback(
-    Output('substruct_items', 'data'),
-    Output('isFiltered', 'data'),
-    Input({'id': 'lst_item_btn', 'index': ALL}, 'n_clicks'),
     Input({'id': 'card_value', 'index': ALL}, 'value'),
-    State('input_data', 'data'),
-    State('substruct_items', 'data'),
-    State('gang_notifier', 'data'),
-    State({'id': 'card_body', 'index': ALL}, 'className'),
-    State('filtred_cards', 'data'),
-    State('isFiltered', 'data'),
-    prevent_initial_call=True
+    Input({'id': 'lst_item_btn', 'index': ALL}, 'n_clicks'),
+    State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
+    State('food_tracer', 'data')
 )
-def substruct_if_list_clicked(lst_item_btn, card_value, input_data, substruct_items, gang_notifier, card_body, filtred_cards, isFiltered):
-    context = None
-    isFiltered = isFiltered or {'filtred': False}
-    context = dash.callback_context.triggered[0]
-    substruct_items = substruct_items or gang_notifier
-    if not set(substruct_items.keys()) == set(gang_notifier.keys()):
-        substruct_items = gang_notifier
-        input_data = filtred_cards
-        isFiltered['filtred'] = True
+def update_list_items(input_data, start_btn, card_value, lst_item_btn, start_btn_status, food_tracer):
+    context = dash.callback_context.triggered
+    input_data = input_data or {'data': {}}
+    current_cards = pd.DataFrame.from_dict(input_data['data'].get('cards_values'))
+    food_tracer = food_tracer or crud_op_db.init_cards_tracer() 
+    if not food_tracer: 
+        raise PreventUpdate
+    food_tracer = pd.DataFrame.from_dict(food_tracer)
+    cntxt = context[0].get('prop_id', None)
 
-    if isFiltered['filtred']:
-        input_data = filtred_cards
-
-    if context:
-        if context['prop_id'] == '.' or not input_data:
-            raise PreventUpdate
-
-        context_dict = json.loads(
-            dash.callback_context.triggered[0]['prop_id'].split('.')[0])
-        data = pd.DataFrame.from_dict(input_data['initial']['cards_values'])
-        old_values = []
-        new_values = []
-        if context_dict['id'] == 'lst_item_btn' and context['value'] is not None:
-            substruct_items = hlp.subtract(
-                data,
-                substruct_items,
-                context_dict,
-                card_body
+    if 'commit_substraction_btn' in cntxt and len(context) == 1: 
+        context_dict = json.loads(cntxt.split('.')[0])
+        type_id_int = int(context_dict['index'].split('_')[0])
+        card_idx = int(context_dict['index'].split('_')[1])
+        if start_btn_status[card_idx] == 'Start':
+            food_tracer = hlp.update_production(
+                food_tracer,
+                type_id_int
             )
+            new_cards = hlp.intersection(current_cards, food_tracer)
+            new_list = hlp.foods_listing(new_cards)
 
-        elif context_dict['id'] == 'card_value' and context['value'] is not None:
-            # Check if the user select or deselect the item
-            old_values = substruct_items[str(context_dict['index'])][:]
-            substruct_items[str(context_dict['index'])] = context['value']
-            new_values = substruct_items[str(context_dict['index'])][:]
+            return show_items(new_list, True), food_tracer.to_dict('records')
 
-        if context_dict['id'] in ['card_value', 'lst_item_btn']:
-            substruct_items = hlp.gang_checker(
-                substruct_items, data, old_values, new_values, context_dict)
+    new_cards = hlp.intersection(current_cards, food_tracer)
+    new_list = hlp.foods_listing(new_cards)
 
-    return substruct_items, isFiltered
+    if 'card_value' in cntxt and len(context) == 1: 
+        food_tracer = hlp.insert_selected_item(food_tracer, context)
+        new_cards = hlp.intersection(current_cards, food_tracer)
+        new_list = hlp.foods_listing(new_cards)
+        return show_items(new_list, True), food_tracer.to_dict('records')
+    
+    if  'lst_item_btn' in cntxt and len(context) == 1:
+        new_cards = hlp.intersection(current_cards, food_tracer)
+        food_tracer = hlp.insert_selected_item_2(food_tracer, context, new_cards)
+        new_cards = hlp.intersection(current_cards, food_tracer)
+        new_list = hlp.foods_listing(new_cards)
+        return show_items(new_list, True), food_tracer.to_dict('records')
+
+    return show_items(new_list, True), food_tracer.to_dict('records')
 
 
 @app.callback(
     Output({'id': 'card_value', 'index': ALL}, 'value'),
-    Output('items', 'children'),
-    Output({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
-    Input('substruct_items', 'data'),
-    Input('start_data_holder', 'data'),
-    State({'id': 'card_value', 'index': ALL}, 'value'),
-    #State('input_data', 'data'),
-    State({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
-    State('filtred_cards', 'data'),
-    prevent_initial_call=True
-)
-def update_checklist_options_vals(substruct_items, start_data_holder, old_vals, btns, filtred_cards):
-    if not substruct_items:
-        raise PreventUpdate
-
-    if len(dash.callback_context.triggered) > 1:
-        raise PreventUpdate
-
-    # Update the left-listgroup
-    items = hlp.subtract_selected_v3(start_data_holder, substruct_items)
-    if filtred_cards:
-        cards = pd.DataFrame.from_dict(
-            filtred_cards['initial']['cards_values'])
-        items = items.loc[
-            items['type_id_str'].isin(
-                cards['type_id_str'].drop_duplicates().tolist()
-            )
-        ]
-    new_items = show_items(items, False)
-    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-    if context == 'start_data_holder':
-        return old_vals, new_items, btns
-
-    # Get the new vals (cross out the cards items if left listgroup item clicked)
-    new_vals = hlp.get_opts_vals(substruct_items, old_vals)
-
-    # enable/active the btn if all card items is selected
-    data = pd.DataFrame.from_dict(start_data_holder['initial']['cards_values'])
-    btns = hlp.check_if_selected_all(data, substruct_items, btns)
-
-    return new_vals, new_items, btns
-
-
-@app.callback(
-    Output('historical_subtraction', 'data'),
-    #Output('go_to_details', 'style'),
-    Output({'id': 'card', 'index': ALL}, 'className'),
     Output({'id': 'card_body', 'index': ALL}, 'className'),
+    Output({'id': 'card', 'index': ALL}, 'className'),
     Output({'id': 'commit_substraction_btn', 'index': ALL}, 'color'),
     Output({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
-    Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
+    Output({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
+    Input('food_tracer', 'data'), 
     State('input_data', 'data'),
-    State('historical_subtraction', 'data'),
-    State({'id': 'card_body', 'index': ALL}, 'className'),
-    State({'id': 'card', 'index': ALL}, 'className'),
+    State({'id': 'card_body', 'index': ALL}, 'className'), 
+    State({'id': 'card', 'index': ALL}, 'className'), 
     State({'id': 'commit_substraction_btn', 'index': ALL}, 'color'),
     State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
     State({'id': 'card_value', 'index': ALL}, 'value'),
-    State('substruct_items', 'data')
+    State({'id': 'commit_substraction_btn', 'index': ALL}, 'disabled'),
 )
-def subtract_handler(n_clicks, input_data, historical_subtraction, card_body_style, card_style, button_color_status, button_children_status, card_value, substruct_items):
+def card_style(food_tracer, input_data, current_body_style, current_card_style, btns_color, btns_text, card_value, stop_btns):
+    context = dash.callback_context.triggered
+    if not food_tracer: 
+        raise PreventUpdate
+    
+    # Match food_tracer with input_data (get the same type_id_int/order)
+    input_data = input_data or {'data':{}}
+    current_cards = pd.DataFrame.from_dict(input_data['data'].get('cards_values'))
+    food_tracer = pd.DataFrame.from_dict(food_tracer)
+    cards_status = hlp.intersection(current_cards, food_tracer)
+    cards_status_grp = cards_status.groupby(['type_id_int']).agg({
+        'available_quantity': 'sum',
+        'type_only': 'last',
+        'bonus': 'last',
+        'production': 'sum'
+    }).reset_index(drop=True)
+    for idx, row in cards_status_grp.iterrows(): 
+        if row['production']:
+            current_body_style[idx] = 'enable_card'
+            current_card_style[idx] = 'active_card'
+            btns_color[idx] = 'danger'
+            btns_text[idx] = 'Stop'
+            stop_btns[idx] = True
+        else: 
+            current_body_style[idx] = 'disabled'
+            current_card_style[idx] = ''
+            btns_color[idx] = 'success'
+            btns_text[idx] = 'Start'
+    for idx, (i, row) in enumerate(cards_status.drop_duplicates(subset='type_id_int').iterrows()):
+        card_items = cards_status.loc[cards_status['type_id_int']==row['type_id_int']]
+        card_value[idx] = card_items.loc[card_items['selected']==1]['type_id_str'].tolist()
+        if len(card_value[idx]) == len(card_items):
+            stop_btns[idx] = False
+            
+    return card_value, current_body_style, current_card_style, btns_color, btns_text, stop_btns
+
+
+@app.callback(
+    Output({'id': 'card_container', 'index': ALL}, 'className'),
+    Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
+    State('input_data', 'data'),
+    State({'id': 'card_container', 'index': ALL}, 'className'),
+    State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
+    State({'id': 'card_value', 'index': ALL}, 'value'),
+)
+def subtract_handler(n_clicks, input_data, card_container, button_children_status, card_value):
     if not [click for click in n_clicks if click] or not input_data:
         raise PreventUpdate
-    historical_subtraction = historical_subtraction or {}
 
     callback = dash.callback_context.triggered[0]['prop_id'].split('.')
     clicked_btn = callback[0]
     clicked_btn = json.loads(clicked_btn)
     clicked_btn_index = clicked_btn.get('index', None)
-    #display_details_btn = {'display': 'none'}
 
-    if button_children_status[int(clicked_btn_index.split('_')[1])] == 'Start':
+    if button_children_status[int(clicked_btn_index.split('_')[1])] == 'Stop':
+        cards_values_all = pd.DataFrame.from_dict(input_data['data']['cards_values'])
+        type_id_int = int(clicked_btn_index.split('_')[0])
+        card_food = cards_values_all.loc[cards_values_all['type_id_int'] == type_id_int]
+        if len(card_value[int(clicked_btn_index.split('_')[1])]) == len(card_food):
+            # Update "food" and "historical_sales" tables ...
+            crud_op_db.update_vals(card_food)
+            card_container[int(clicked_btn_index.split('_')[1])] = 'destroy_card'
 
-        button_children_status[int(clicked_btn_index.split('_')[1])] = 'Stop'
-        button_color_status[int(clicked_btn_index.split('_')[1])] = 'danger'
-        card_style[int(clicked_btn_index.split('_')[1])] = 'active_card'
-        card_body_style[int(clicked_btn_index.split('_')[1])] = 'enable_card'
-    else:
-        cards_values_all = input_data['initial']['cards_values']
-        cards_subtraction_details = historical_subtraction.get(
-            'cards_subtraction_details', [])
-        # If nothing selected from the card then prevent destroy card:
-        if not card_value[int(clicked_btn_index.split('_')[1])]:
-            card_style[int(clicked_btn_index.split('_')[1])] = 'active_card'
-        else:
-            # Commit the subtraction only if "Stop btn" clicked
-            historical_subtraction['cards_subtraction_details'] = hlp.commit_subtraction_v2(
-                cards_values_all, cards_subtraction_details, substruct_items
-            )
-            if historical_subtraction['cards_subtraction_details']:
-                pass
-                #display_details_btn = {'display': 'block', 'color': 'rgb(206, 203, 203)'}
-            card_style[int(clicked_btn_index.split('_')[1])] = 'destroy_card'
-
-    return historical_subtraction, card_style, card_body_style, button_color_status, button_children_status
+    return card_container
 
 
 @app.callback(
     Output("filter_modal", "is_open"),
-    Output('filtred_cards', 'data'),
     Input("btn_filter_modal", "n_clicks"),
     Input("apply_filter", "n_clicks"),
     State("filter_modal", "is_open"),
-    State('filtred_cards_tmp', 'data'),
-    State('sort_by', 'value'),
-    State('sort_how', 'value'),
 )
 def toggle_modal(
     n1,
     n2,
     is_open,
-    filtred_cards_tmp,
-    sort_by,
-    sort_how,
 ):
     context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     context_value = dash.callback_context.triggered[0]['value']
 
     if context == 'btn_filter_modal' and context_value:
-        return not is_open, {}
-
+        return not is_open
     if context == 'apply_filter' and context_value:
-        df = pd.DataFrame.from_dict(
-            filtred_cards_tmp['initial']['cards_values'])
-        sort_by = [sort_by]  # + ['gang_number']
-        ascending = False
-        if sort_how == 0:
-            ascending = True
+        return not is_open
+    return is_open
 
-        df = df.sort_values(
-            by=sort_by, ascending=ascending).reset_index(drop=True)
-        filtred_cards_tmp['initial']['cards_values'] = df.to_dict('records')
-        return not is_open, filtred_cards_tmp
-    return is_open, {}
-
+@app.callback(
+    Output('filter_options', 'data'),
+    Input('btn_filter_modal', 'n_clicks')
+)
+def update_filter_options(btn_filter_modal): 
+    if btn_filter_modal:
+        data = crud_op_db.update_filter_options('food') 
+        result = {'foods': data.to_dict('records')}
+        return result
+    return None
 
 @app.callback(
     Output('filtred_cards_tmp', 'data'),
@@ -419,13 +466,16 @@ def toggle_modal(
     Input('gang_number_1', 'value'),
     Input('plate_type_1', 'value'),
     Input('phrase_1', 'value'),
-    Input('input_data', 'data'),
+    Input('filter_options', 'data'),
+    Input('apply_filter', 'n_clicks'),
     State('date_picker_1', 'options'),
     State('datetime_picker_1', 'options'),
     State('process_1', 'options'),
     State('gang_number_1', 'options'),
     State('plate_type_1', 'options'),
     State('phrase_1', 'options'),
+    State('sort_by', 'value'),
+    State('sort_how', 'value'),
 )
 def update_result(
     selected_dates,
@@ -434,28 +484,25 @@ def update_result(
     selected_gang_numbers,
     selected_plates,
     selected_phrases,
-    input_data,
+    filter_options,
+    apply_filter,
     date_picker_options,
     datetime_picker_options,
     process_options,
     gang_number_options,
     plate_type_options,
     phrase_options,
+    sort_by, 
+    sort_how
 ):
 
-    input_data = input_data or {}
+    filter_options = filter_options or {}
 
     context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-
-    if not input_data:
+    if not filter_options:
         raise PreventUpdate
 
-    cards_values = pd.DataFrame.from_dict(
-        input_data['initial'].get('cards_values')
-    )
-    listgroup_values = pd.DataFrame.from_dict(
-        input_data['initial'].get('listgroup_values')
-    )
+    cards_values = pd.DataFrame.from_dict(filter_options.get('foods'))
 
     cards_subtr = cards_values.copy()
     #cards_subs_copy = cards_subtr.copy()
@@ -536,13 +583,10 @@ def update_result(
 
     cards_subtr = cards_subtr.sort_values(
         by=['type_id_int', 'gang_number']).reset_index(drop=True)
-    listgroup_items = listgroup_values.loc[
-        listgroup_values['type_id_str'].isin(
-            cards_subtr['type_id_str'].drop_duplicates().tolist()
-        )
-    ]
 
-    input_data['initial']['cards_values'] = cards_subtr.to_dict('records')
-    input_data['initial']['listgroup_values'] = listgroup_items.to_dict(
-        'records')
-    return input_data, date_picker_options, datetime_picker_options, process_options, gang_number_options, plate_type_options, phrase_options
+    cards_subtr = cards_subtr.sort_values(by=sort_by, ascending=sort_how).reset_index(drop=True)
+    filter_options['food'] = cards_subtr.to_dict('records')
+    if context != 'apply_filter' or not apply_filter: 
+        filter_options = None
+
+    return filter_options, date_picker_options, datetime_picker_options, process_options, gang_number_options, plate_type_options, phrase_options

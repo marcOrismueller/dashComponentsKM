@@ -81,6 +81,12 @@ td.CalendarDay {
   margin-bottom: 0px;
 }
 
+.signup_disabled
+{
+  pointer-events: none;
+  opacity: 0;
+}
+
 .left_items{
   display: flex;
   flex-direction: column;
@@ -239,6 +245,10 @@ label[for*='gang_']{
   border: 3px #0dc400 solid;
 }
 
+.modal-content{
+	padding: 20px;
+}
+
 .card{
 
 }
@@ -287,10 +297,7 @@ a:hover{
   color: #333;
 }
 
-#error_input_popup{
-	font-size: 16px;
-}
-#success_input_popup{
+.toast{
 	font-size: 16px;
 }
 
@@ -307,6 +314,8 @@ a:hover{
 #registration{
   font-family: "montserrat", sans-serif
 }
+
+
 
 .page-content {
 	width: 100%;
@@ -732,4 +741,41 @@ a:hover{
 		text-align: center;
 		margin: 44px 0 30px
 	}
+}
+
+#pagination {
+    float: right;
+    margin-right: 100px;
+}
+
+#prev{
+	margin-right: 15px;
+}
+
+.pagination {
+	float: right;
+    margin-right: 100px;
+	display: inline-block;
+  }
+  
+.pagination a {
+color: black;
+float: left;
+padding: 8px 16px;
+text-decoration: none;
+transition: background-color .3s;
+border: 1px solid #ddd;
+}
+
+.pagination a.active {
+background-color: #4CAF50;
+color: white;
+border: 1px solid #4CAF50;
+}
+
+.pagination a:hover:not(.active) {background-color: #ddd;}
+
+
+#qt_per_tab{
+	cursor: pointer;
 }

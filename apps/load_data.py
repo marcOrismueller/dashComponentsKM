@@ -5,11 +5,10 @@ from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 from app import app, engine
 import locale
-from apps.fnc_container import helpers
+from apps.fnc_container import helpers, crud_op_db
 import ast
 from flask_login import current_user
 from preprocessing import Preprocessing
-
 # Windows:
 #locale.setlocale(locale.LC_ALL, 'deu_deu')
 # Ubuntu (Deployement Version):
@@ -75,6 +74,19 @@ cards_headers = p.card_header()
 
 layout = html.Div(
     dbc.Container([
+        dbc.Toast(
+            "Your data uploaded successfully!..",
+            id="success_upload_data",
+            header="Upload Data ",
+            is_open=False,
+            #dismissable=True,
+            duration=4000,
+            icon="success",
+            # top: 66 positions the toast below the navbar
+            style={"position": "fixed", "top": 66,
+                    "right": 10, "width": 350},
+            className='toast'
+        ),
         dbc.Row([
             dbc.Col([
                 html.P('List ELements'),
@@ -126,7 +138,7 @@ layout = html.Div(
                 dcc.Link(
                     dbc.Button("Load", outline=True, color="dark",
                                id='load_btn', block=True),
-                    href='/items-selection'
+                    href=''
                 ),
             ], width={"size": 3, "offset": 6})
         ])
@@ -135,8 +147,8 @@ layout = html.Div(
 
 
 @app.callback(
-    Output('input_data', 'data'),
     Output('upload_alert', 'children'),
+    Output('success_upload_data', 'is_open'),
     Input('load_btn', 'n_clicks'),
     State('listgroup_values', 'value'),
     State('cards_values', 'value'),
@@ -152,17 +164,11 @@ def upload_data(n_clicks, listgroup_values, cards_values, cards_headers):
         cards_headers = ast.literal_eval(cards_headers)
 
         if listgroup_values and cards_values and cards_headers:
-            new_cards_values = helpers.food_cards_listings(listgroup_values, cards_headers)
-            new_listgroup_values = helpers.foods_listing(new_cards_values)
-            # new_listgroup_values = helpers.process_input_listgroup_v2(
-            #     listgroup_values)
-            # new_cards_values = helpers.process_input_cards_v2(
-            #     cards_values, cards_headers)
-            return {
-                'initial': {
-                    'listgroup_values': new_listgroup_values.to_dict('records'), 'cards_values': new_cards_values.to_dict('records')
-                },
-            }, ''
+            new_cards_values = helpers.extract_informations(listgroup_values, cards_headers)
+            # Push the data to our database...
+            res = crud_op_db.update_foods(new_cards_values)
+            
+            return '', True
         else:
-            return None, [dbc.Col(dbc.Alert("This is a danger alert. Scary!", color="danger"), width={"size": 6, "offset": 3})]
-    return {}, ''
+            return  [dbc.Col(dbc.Alert("This is a danger alert. Scary!", color="danger"), width={"size": 6, "offset": 3})], False
+    return '', False

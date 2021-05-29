@@ -86,15 +86,15 @@ def process_input_listgroup_v2(card_body_input):
             if 'gang' in p.lower():
                 continue
             else:
-                additionalInfo = []
+                bonus = []
                 p_chunked = re.split(f'.(?={bonus_separtor})', p)
                 for chunk in p_chunked:
                     if bonus_separtor in chunk:
-                        additionalInfo.append(chunk)
+                        bonus.append(chunk)
                     else:
                         result = get_type_details(chunk)
 
-                row['additionalInfo'] = '\n'.join(additionalInfo)
+                row['bonus'] = '\n'.join(bonus)
                 row['type_id_str'] = hash_name(p)
                 row.update(result)
 
@@ -103,7 +103,7 @@ def process_input_listgroup_v2(card_body_input):
         'quantity': 'sum',
         'price': 'sum',
         'type': 'last',
-        'additionalInfo': 'last'
+        'bonus': 'last'
     }).reset_index()
     df['type_id_int'] = list(range(len(df['type'])))
     df['production'] = 0
@@ -157,16 +157,16 @@ def process_input_cards_v2(card_body_input, card_header_input):
                     'gang_id': p.lower().replace(' ', '_')
                 }
             else:
-                additionalInfo = []
+                bonus = []
                 p_chunked = re.split(f'.(?={bonus_separtor})', p)
 
                 for chunk in p_chunked:
                     if bonus_separtor in chunk:
-                        additionalInfo.append(chunk)
+                        bonus.append(chunk)
                     else:
                         result = get_type_details(chunk)
                 row['type_id_str'] = hash_name(p)
-                row['additionalInfo'] = '\n'.join(additionalInfo)
+                row['bonus'] = '\n'.join(bonus)
                 row['type_id_int'] = i
                 row['card_datetime'] = datetime.strptime(
                     ' '.join(header.split()[:2]), '%d-%b-%y %H:%M')

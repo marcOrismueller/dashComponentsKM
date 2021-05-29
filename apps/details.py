@@ -3,99 +3,49 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 import pandas as pd
 from dash.dependencies import Input, Output, State
+from sqlalchemy.sql.schema import Column
 from app import app
 from dash.exceptions import PreventUpdate
 import dash
-from apps.fnc_container import components, helpers
+import plotly.graph_objects as go
+from apps.fnc_container import components, crud_op_db, helpers
+from plotly.subplots import make_subplots
 
-
-def build_page_2():
-    # Details (section 1)
-    page2 = html.Div([
-        html.Div(id='mainContainer', children=[
+layout = dbc.Card([
+        dbc.CardHeader(
+            dbc.Tabs([
+                dbc.Tab(label="General", tab_id="general"),
+                dbc.Tab(label="Historical sales", tab_id="historical_sales")
+            ], 
+            id="detail_tab",
+            card=True,
+            active_tab="general"
+        )),
+        dbc.CardBody(
             html.Div(children=[
-                html.Div(id='cross-filter-options', children=[
-                    html.P('Filter by date range:', className='control_label'),
-                    html.Div(
-                        dcc.DatePickerRange(
-                            id='date_range_picker',
-                            start_date='',
-                            end_date='',
-                            updatemode='singledate',
-                            display_format='YYYY-MM-DD'
-                        ),
-                        className='dcc_control'
-                    ),
+                html.Div(id="detail_content")
+        ])),
+    ], 
+    style={'backgroundColor': 'transparent'}
+)
 
-                    html.P('Filter by specific date:',
-                           className='control_label'),
-                    html.Div(
-                        dcc.Dropdown(
-                            id='date_picker',
-                            multi=True,
-                            options=[],
-                            placeholder='YYYY-MM-DD',
-                        ),
-                        className='dcc_control'
-                    ),
+@app.callback(
+    Output('historical_sales', 'data'),
+    Output('detail_content', 'children'),
+    Input('detail_tab', 'active_tab'), 
+    State('historical_sales', 'data')
+)
+def show_detail(detail_tab, historical_sales): 
+    historical_sales= historical_sales or crud_op_db.historical()
+    historical_sales = pd.DataFrame.from_dict(historical_sales)
+    start_date = min(historical_sales['sales_created'])
+    end_date = max(historical_sales['sales_created'])
+    historical_sales = historical_sales.to_dict('records')
 
-                    html.P('Filter by table index:',
-                           className='control_label'),
-                    html.Div(
-                        dcc.Dropdown(
-                            id='process',
-                            multi=True,
-                            options=[],
-                            placeholder='100 ...',
-                        ),
-                        className='dcc_control'
-                    ),
-
-                    html.P('Filter by table Gang number:',
-                           className='control_label'),
-                    html.Div(
-                        dcc.Dropdown(
-                            id='gang_number',
-                            multi=True,
-                            options=[],
-                            placeholder='1. Gang',
-                        ),
-                        className='dcc_control'
-                    ),
-
-                    html.P('Filter by plate types:',
-                           className='control_label'),
-                    html.Div(
-                        dcc.Dropdown(
-                            id='plate_type',
-                            multi=True,
-                            options=[],
-                            # placeholder='...',
-                            className='dcc_control'
-                        )
-                    ),
-
-                    html.P('Filter by Phrase:', className='control_label'),
-                    html.Div(
-                        dcc.Dropdown(
-                            id='phrase',
-                            multi=True,
-                            options=[],
-                            # placeholder='...',
-                        ),
-                        className='dcc_control'
-                    ),
-
-                    html.Div(
-                        dbc.Button(
-                            'reset',
-                            id='reset_filters',
-                            style={'float': 'right', 'marginRight': '5px'}
-                        ),
-                        className='dcc_control'
-                    )
-                ], className='pretty_container three columns'),
-
+    if detail_tab == 'general':
+        layout = html.Div(id='mainContainer', children=[
+            html.Div(children=[
+                components.dashboard_filter(),
                 html.Div([
                     html.Div(html.H4('Gesamtübersicht aller Speisen'),
                              style={'textAlign': 'center'}),
@@ -123,23 +73,349 @@ def build_page_2():
                 dcc.Loading(html.Div(id='for_each_card'))
             ]),
 
-        ]),
-        html.Div(id='test')
+        ])
+    
+    else:
+        layout = html.Div(id='mainContainer', children=[
+            html.Div([
+                    html.Div([
+                        html.Div([
+                            html.P('Select a timeframe ', className='control_label'),
+                            html.Div(
+                                dcc.DatePickerRange(
+                                    id='timeframe_picker',
+                                    start_date=start_date,
+                                    end_date=end_date,
+                                    updatemode='singledate',
+                                    display_format='YYYY-MM-DD',
+                                    style={'margin': '15px'}
+                                ),
+                                className=''
+                            ),
+                            html.Div(
+                                dbc.Button('Apply timeframe', id='apply_timeframe')
+                            )
+                        ], style={'display': 'flex', 'flexDirection': 'row', 'alignItems': 'center'})
+                    ], className='pretty_container four columns'),  
+                    html.Div(html.H5('Display some metadata here!'), className='pretty_container seven columns')
+            ], className='row flex-display'),
+            html.Div(children=[
+                html.Div(children=[
+                    html.Div(
+                        html.H5('The total quantity of food sold per table'), 
+                        style={'textAlign': 'center', 'marginBottom': '30px'}
+                    ),
+                    dcc.Loading(html.Div(id='food_qt_per_table'))
+                ], className='pretty_container four columns'),
+
+                html.Div(
+                    dcc.Loading(html.Div(id='historical_per_table')), 
+                    className='pretty_container seven columns'
+                ),
+
+            ], className='row flex-display'),
+
+            # Details (section 2)
+            html.Div(
+                children=[
+                    html.Div(id='historical_per_food_table', className='pretty_container six columns'),
+                    html.Div([
+                        html.Div(id='section_2'), 
+                        html.Div(id='historical_table')
+                    ], className='pretty_container five columns'), 
+                ], 
+                className='row flex-display'),
+
+        ])
+    
+    return historical_sales, layout
+
+
+@app.callback(
+    Output('section_2', 'children'),
+    Input('historical_sales', 'data')
+)
+def show_more_details(historical_sales): 
+    if not historical_sales: 
+        raise PreventUpdate
+
+    historical_sales = pd.DataFrame.from_dict(historical_sales)
+    top_n = helpers.groupdf(historical_sales)
+    
+    top_n_qt = top_n.nlargest(10, 'Total quantity')
+    top_n_qt = top_n_qt.sort_values(by=['Total quantity'], ascending=True)
+    
+    top_by_qt = go.Figure((go.Bar(
+        x=top_n_qt['Total quantity'],
+        y=top_n_qt['Food'],
+        marker=dict(
+            color='rgba(50, 171, 96, 0.6)',
+            line=dict(color='rgba(50, 171, 96, 1.0)', width=0.8),
+        ),
+        name='Top 10 Foods by sold quantity',
+        orientation='h',
+    )))
+    top_by_qt.update_layout(
+        paper_bgcolor="#F9F9F9",
+        plot_bgcolor="#F9F9F9",
+        margin=dict(t=0, r=0, b=70, l=0),
+        autosize=True,
+        height=250
+    )
+    
+    top_n_price = top_n.nlargest(10, 'Total price')
+
+    top_n_price['Total price'] = top_n_price['Total price'].astype(float)
+    top_n_price = top_n_price.sort_values(by=['Total price'], ascending=True).reset_index(drop=True)
+
+    top_by_price = go.Figure(go.Bar(
+        x=top_n_price['Total price'],
+        y=top_n_price['Food'],
+        marker=dict(
+            color='#6378a6',
+            line=dict(color='#6378a6', width=0.8),
+        ),
+        name='Top 10 Foods by sold price',
+        orientation='h',
+    ))
+
+    top_by_price.update_layout(
+        paper_bgcolor="#F9F9F9",
+        plot_bgcolor="#F9F9F9",
+        margin=dict(t=0, r=0, b=120, l=0),
+        autosize=True,
+        height=250
+    )
+    top_n_food = html.Div([
+        html.Div([
+            html.Div(children=[
+                html.Div(html.H5('Top 10 Foods by sold quantity'), style={'textAlign': 'center', 'marginBottom': '30px'}),
+                dcc.Graph(figure=top_by_qt, config={'displayModeBar': False})]),
+            html.Div(children=[
+                html.Div(html.H5('Top 10 Foods by total price (Revenue)'), style={'textAlign': 'center', 'marginBottom': '30px'}),
+                dcc.Graph(figure=top_by_price, config={'displayModeBar': False})])
+        ], style={'display': 'flex', 'flexDirection': 'column'})
     ])
-    return page2
+    return top_n_food
 
 
 @app.callback(
     Output('listgroup_total', 'children'),
     Output('pie_total', 'children'),
+    Output('for_each_card', 'children'),
+    Input('apply_filter_2', 'n_clicks'),
+    State('filter_result', 'data'), 
+)
+def display_graphs(apply_filter, filter_result):
+    if not filter_result: 
+        raise PreventUpdate
+
+    cards_subtr = pd.DataFrame.from_dict(filter_result)
+
+     # Total Graphs components
+    total_subt_df = cards_subtr.groupby('type_id_str').agg({
+        'available_quantity': 'sum',
+        'price': 'sum',
+        'type': 'last',
+        'type_only': 'last',
+        'bonus': 'last',
+        'gang_number': 'last',
+        'process': 'last',
+    }).reset_index()
+
+    listgroup_children_total = [
+        dbc.ListGroupItem(
+            children=helpers.get_tot_quantity(row),
+            style={'padding': '8px'}
+        )
+        for i, row in total_subt_df.iterrows()
+    ]
+
+    pie_total_fig = None
+    if not total_subt_df.empty:
+        pie_total_fig = dcc.Graph(figure=components.build_pie(
+                total_subt_df,
+                'available_quantity',
+                'type_only',
+                'type_only'
+            ), 
+            config={'displayModeBar': False}
+        )
+         
+    # graphs for each card:
+    cards_subtr_by_index = cards_subtr.groupby(['type_id_int', 'type_id_str']).agg({
+        'available_quantity': 'sum',
+        'price': 'sum',
+        'type': 'last',
+        'type_only': 'last',
+        'bonus': 'last',
+        'gang_number': 'last',
+        'process': 'last'
+    }).reset_index()
+
+    pie_for_each_card = None
+    if not cards_subtr_by_index.empty:
+        pie_for_each_card = components.get_cards_details(cards_subtr_by_index)
+    return listgroup_children_total, pie_total_fig, pie_for_each_card
+
+@app.callback(
+    Output('food_qt_per_table', 'children'), 
+    Input('detail_tab', 'active_tab'),
+    State('historical_sales', 'data')
+)
+def show_per_table(detail_tab, historical_sales):
+
+    if historical_sales and detail_tab == 'historical_sales': 
+        historical_sales = pd.DataFrame.from_dict(historical_sales)
+        food_per_table_df = historical_sales.groupby(['table']).agg({
+            'available_quantity': 'sum',
+            'price': 'sum'
+        }).reset_index()
+        food_per_table_df = food_per_table_df.rename(columns={
+            'available_quantity': 'Total quantity', 
+            'table': 'Table', 
+            'price': 'Total price'
+        })
+
+        food_per_table = dcc.Graph(
+            figure= components.build_pie(
+                food_per_table_df,
+                'Total quantity',
+                'Table',
+                'Table', 
+                250
+            ), 
+            id='qt_per_tab', 
+            config={
+                'displayModeBar': False
+            }
+        )
+        return food_per_table
+    else: 
+        raise PreventUpdate
+
+@app.callback(
+    Output('historical_per_table', 'children'), 
+    Output('historical_per_food_table', 'children'),
+    Output('historical_table', 'children'),
+    Input('qt_per_tab', 'clickData'),
+    State('historical_sales', 'data')
+)
+def show_historical(hoverData, historical_sales):
+    if not historical_sales: 
+        raise PreventUpdate
+    
+    historical_sales = pd.DataFrame.from_dict(historical_sales)
+    
+    hourly_df_1 = helpers.hourly_converter(historical_sales, ['sales_created', 'table'])
+    hourly_df_2 = helpers.hourly_converter(historical_sales, ['sales_created', 'table', 'type_id_str'], True)
+    hourly_df_2 = hourly_df_2.sort_values(by=['type_id_str', 'Date']).reset_index(drop=True)
+    if hoverData:
+        
+        table = hoverData['points'][0]['customdata']
+        color_discrete_map = {'table': hoverData['points'][0].get('color')}
+        if table: 
+            target_table_1 = hourly_df_1.loc[hourly_df_1['Table']==table[0]]
+            historical_per_table = [
+                html.Div(
+                    html.H5(f'Historical sales (Table - {table[0]})'), 
+                    style={'textAlign': 'center', 'marginBottom': '30px'}
+                ),
+                dcc.Graph(
+                    figure= components.line_chart(
+                        target_table_1,
+                        x="Date", 
+                        y="Total quantity", 
+                        color='Table',
+                        color_discrete_map=color_discrete_map
+                    ), 
+                    id='histo_per_tab', 
+                    config={
+                        'displayModeBar': False
+                    }
+                )
+            ]
+            target_table_2 = hourly_df_2.loc[hourly_df_2['Table']==table[0]]
+            food_per_table = [
+                html.Div(
+                    html.H5(f'All foods that sold in Table - {table[0]}'), 
+                    style={'textAlign': 'center', 'marginBottom': '30px'}
+                ),
+                html.Div(dbc.Table.from_dataframe(target_table_2.filter(['Date', 'Price', 'Total quantity', 'Food', 'Bonus']), striped=True, bordered=True, hover=True))
+            ]
+            table = [
+                html.Div(
+                    html.H5(f'All historical sales for all foods sold in Table - {table[0]}'), 
+                    style={'textAlign': 'center', 'marginBottom': '30px'}
+                ),
+                html.Div(dcc.Graph(
+                    figure= components.line_chart(
+                        target_table_2,
+                        x="Date", 
+                        y="Total quantity", 
+                        color='Food'
+                    ), 
+                    id='histo_per_tab2', 
+                    config={
+                        'displayModeBar': False
+                    }
+                ))]
+            return historical_per_table, food_per_table, table
+    
+    else: 
+        historical_per_table = [
+                html.Div(
+                    html.H5(f'Historical sales (Table - ALL)'), 
+                    style={'textAlign': 'center', 'marginBottom': '30px'}
+                ),
+                dcc.Graph(
+                    figure= components.line_chart(
+                        hourly_df_1,
+                        x="Date", 
+                        y="Total quantity", 
+                        color='Table'
+                    ), 
+                    id='histo_per_tab', 
+                    config={
+                        'displayModeBar': False
+                    }
+                )
+            ]
+        food_per_table = [
+            html.Div(
+                html.H5(f'Daily historical sales (Table - ALL)'), 
+                style={'textAlign': 'center', 'marginBottom': '30px'}
+            ),
+            html.Div(dbc.Table.from_dataframe(hourly_df_2.filter(['Date', 'Price', 'Total quantity', 'Food', 'Bonus']), striped=True, bordered=True, hover=True))
+        ]
+        table = [
+            html.Div(
+                html.H5(f'All historical sales for all foods sold in Table - ALL'), 
+                style={'textAlign': 'center', 'marginBottom': '30px'}
+            ),
+            html.Div(dcc.Graph(
+                    figure= components.line_chart(
+                        hourly_df_2,
+                        x="Date", 
+                        y="Total quantity", 
+                        color='Food'
+                    ), 
+                    id='histo_per_tab2', 
+                    config={
+                        'displayModeBar': False
+                    }
+                ))]
+        return historical_per_table, food_per_table, table
+
+
+@app.callback(
+    Output('filter_result', 'data'),
     # Update the options based on the selected values from the other filters.
     Output('date_picker', 'options'),
     Output('process', 'options'),
     Output('gang_number', 'options'),
     Output('plate_type', 'options'),
     Output('phrase', 'options'),
-    Output('for_each_card', 'children'),
-
     Input('date_range_picker', 'start_date'),
     Input('date_range_picker', 'end_date'),
     Input('date_picker', 'value'),
@@ -152,7 +428,7 @@ def build_page_2():
     State('gang_number', 'options'),
     State('plate_type', 'options'),
     State('phrase', 'options'),
-    State('historical_subtraction', 'data'),
+    State('historical_sales', 'data'),
 )
 def update_result(
     start_date, end_date,
@@ -166,17 +442,14 @@ def update_result(
     gang_number_options,
     plate_type_options,
     phrase_options,
-    historical_subtraction
+    historical_sales
 ):
-
-    historical_subtraction = historical_subtraction or {}
+    historical_sales = historical_sales or {}
     context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-    if not historical_subtraction:
+    if not historical_sales:
         raise PreventUpdate
 
-    cards_subtraction = pd.DataFrame.from_dict(
-        historical_subtraction.get('cards_subtraction_details', [])
-    ).sort_values(by='card_datetime').reset_index(drop=True)
+    cards_subtraction = pd.DataFrame.from_dict(historical_sales).sort_values(by='card_datetime').reset_index(drop=True)
     cards_subtr = cards_subtraction.copy()
     #cards_subs_copy = cards_subtr.copy()
 
@@ -241,50 +514,7 @@ def update_result(
             phrase_options = [{'value': x, 'label': x}
                               for x in cards_subtraction['waitress'].drop_duplicates()]
 
-    # Total Graphs components
-    total_subt_df = cards_subtr.groupby('type_id_str').agg({
-        'quantity': 'sum',
-        'price': 'sum',
-        'type': 'last',
-        'type_only': 'last',
-        'additionalInfo': 'last',
-        'gang_number': 'last',
-        'process': 'last',
-    }).reset_index()
-
-    listgroup_children_total = [
-        dbc.ListGroupItem(
-            children=helpers.get_tot_quantity(row),
-            style={'padding': '8px'}
-        )
-        for i, row in total_subt_df.iterrows()
-    ]
-
-    pie_total_fig = None
-    if not total_subt_df.empty:
-        pie_total_fig = dcc.Graph(figure=components.build_pie(
-            total_subt_df,
-            'quantity',
-            'type_only',
-            'type_only'
-        ))
-
-    # graphs for each card:
-    cards_subtr_by_index = cards_subtr.groupby(['type_id_int', 'type_id_str']).agg({
-        'quantity': 'sum',
-        'price': 'sum',
-        'type': 'last',
-        'type_only': 'last',
-        'additionalInfo': 'last',
-        'gang_number': 'last',
-        'process': 'last'
-    }).reset_index()
-
-    pies_for_each_card = None
-    if not cards_subtr_by_index.empty:
-        pies_for_each_card = components.get_cards_details(cards_subtr_by_index)
-
-    return listgroup_children_total, pie_total_fig, date_picker_options, process_options, gang_number_options, plate_type_options, phrase_options, pies_for_each_card
+    return cards_subtr.to_dict('records'), date_picker_options, process_options, gang_number_options, plate_type_options, phrase_options
 
 
 @app.callback(
@@ -296,16 +526,13 @@ def update_result(
     Output('phrase', 'value'),
     Output('gang_number', 'value'),
     Input('reset_filters', 'n_clicks'),
-    State('historical_subtraction', 'data')
+    State('historical_sales', 'data')
 )
-def reset_filters(reset_filters, historical_subtraction):
-    if not historical_subtraction:
+def reset_filters(reset_filters, historical_sales):
+    if not historical_sales:
         raise PreventUpdate
-    cards_subtr = pd.DataFrame.from_dict(
-        historical_subtraction.get('cards_subtraction_details', [])
-    ).sort_values(by='card_datetime').reset_index(drop=True)
+    cards_subtr = pd.DataFrame.from_dict(historical_sales).sort_values(by='card_datetime').reset_index(drop=True)
     cards_subtr['card_datetime'] = pd.to_datetime(cards_subtr['card_datetime'])
     min_date_allowed = cards_subtr['card_datetime'].values[0]
     max_date_allowed = cards_subtr['card_datetime'].values[-1]
-
     return str(min_date_allowed), str(max_date_allowed), [], [], [], [], []

@@ -1,0 +1,1 @@
+app_db_path = 'sqlite:///app.db'
