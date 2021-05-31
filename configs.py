@@ -1,1 +1,5 @@
-app_db_path = 'sqlite:///app.db'
+ip='127.0.0.1'
+username='root'
+password=''
+database='betadb'
+

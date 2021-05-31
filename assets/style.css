@@ -779,3 +779,36 @@ border: 1px solid #4CAF50;
 #qt_per_tab{
 	cursor: pointer;
 }
+
+.custom-tabs-container {
+    width: 40%;
+	margin-top: 30px;
+	padding: 0 0 40px 0;
+}
+
+.custom-tabs {
+    border-bottom: 0px;
+}
+
+.custom-tab {
+    color:#586069;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    border-top: 3px solid transparent !important;
+    border-left: 0px !important;
+    border-right: 0px !important;
+    border-bottom: 0px !important;
+    background-color: #fafbfc;
+    padding: 12px !important;
+    font-family: "system-ui";
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+.custom-tab--selected {
+    color: black;
+    box-shadow: 1px 1px 0px white;
+    border-left: 1px solid lightgrey !important;
+    border-right: 1px solid lightgrey !important;
+    border-top: 3px solid #e36209 !important;
+}

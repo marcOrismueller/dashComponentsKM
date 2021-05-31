@@ -196,7 +196,6 @@ def fetch_data(pathname, prev, next, show_all, filtred_cards, pagination_status)
             # Get the next 10 cards
             cards_df = crud_op_db.read_food_cards(id_int=pagination_status['last_id'])
             if not cards_df.empty:
-                left_list_df = hlp.foods_listing(cards_df)
                 pagination_status = {
                     'first_id': pagination_status['last_id'],
                     'last_id': max(cards_df['type_id_int'])
@@ -216,7 +215,6 @@ def fetch_data(pathname, prev, next, show_all, filtred_cards, pagination_status)
                 next=False
             )
             if not cards_df.empty:
-                left_list_df = hlp.foods_listing(cards_df)
                 pagination_status = {
                     'first_id': min(cards_df['type_id_int']),
                     'last_id': max(cards_df['type_id_int'])
@@ -232,7 +230,6 @@ def fetch_data(pathname, prev, next, show_all, filtred_cards, pagination_status)
         elif context == 'show_all': 
             cards_df = crud_op_db.read_food_cards(show_all=True)
             if not cards_df.empty:
-                left_list_df = hlp.foods_listing(cards_df)
                 pagination_status = {
                     'first_id': min(cards_df['type_id_int']),
                     'last_id': max(cards_df['type_id_int'])
@@ -249,9 +246,7 @@ def fetch_data(pathname, prev, next, show_all, filtred_cards, pagination_status)
 
     if pathname == '/items-selection' and current_user.is_authenticated:
         cards_df = crud_op_db.read_food_cards()
-        
         if not cards_df.empty:
-            left_list_df = hlp.foods_listing(cards_df)
             pagination_status = {
                 'first_id': min(cards_df['type_id_int']),
                 'last_id': max(cards_df['type_id_int'])

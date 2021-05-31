@@ -7,15 +7,16 @@ from flask_sqlalchemy import SQLAlchemy
 import configparser
 import os
 from flask_login import logout_user, LoginManager, UserMixin
+import configs
 
 warnings.filterwarnings("ignore")
 
 external_stylesheets = [
-    'https://codepen.io/chriddyp/pen/bWLwgP.css',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css', 
     ]
 
-engine = create_engine('mysql://root:@localhost/betadb')
+credentials_db = f'mysql://{configs.username}:{configs.password}@{configs.ip}/{configs.database}'
+engine = create_engine(credentials_db)
 db = SQLAlchemy()
 config = configparser.ConfigParser()
 class User(db.Model):
@@ -33,7 +34,7 @@ User_tbl = Table('users', User.metadata)
 app = dash.Dash(
     __name__, 
     suppress_callback_exceptions=True, 
-    external_stylesheets=[dbc.themes.BOOTSTRAP, external_stylesheets, dbc.themes.GRID], 
+    external_stylesheets=[dbc.themes.BOOTSTRAP, external_stylesheets],  #, dbc.themes.GRID
     title='SaCoSo KM',
     update_title=None,
 )
@@ -41,7 +42,7 @@ app = dash.Dash(
 server = app.server
 server.config.update(
     SECRET_KEY=os.urandom(12),
-    SQLALCHEMY_DATABASE_URI='mysql://root:@localhost/betadb',
+    SQLALCHEMY_DATABASE_URI=credentials_db,
     SQLALCHEMY_TRACK_MODIFICATIONS=False
 )
 db.init_app(server)

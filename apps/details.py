@@ -3,132 +3,147 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 import pandas as pd
 from dash.dependencies import Input, Output, State
-from sqlalchemy.sql.schema import Column
 from app import app
 from dash.exceptions import PreventUpdate
 import dash
 import plotly.graph_objects as go
 from apps.fnc_container import components, crud_op_db, helpers
-from plotly.subplots import make_subplots
 
-layout = dbc.Card([
-        dbc.CardHeader(
-            dbc.Tabs([
-                dbc.Tab(label="General", tab_id="general"),
-                dbc.Tab(label="Historical sales", tab_id="historical_sales")
-            ], 
-            id="detail_tab",
-            card=True,
-            active_tab="general"
-        )),
-        dbc.CardBody(
-            html.Div(children=[
-                html.Div(id="detail_content")
-        ])),
-    ], 
-    style={'backgroundColor': 'transparent'}
-)
+layout = html.Div([
+    dcc.Tabs(
+        id='dashboard_tabs', 
+        value='general', 
+        parent_className='custom-tabs',
+        className='custom-tabs-container',
+        children=[
+        dcc.Tab(
+            label='General', 
+            value='general', 
+            className='custom-tab',
+            selected_className='custom-tab--selected',
+            children=[
+            html.Div(id='mainContainer', children=[
+                html.Div(children=[
+                    components.dashboard_filter(),
+                    html.Div([
+                        html.Div(html.H4('Gesamtübersicht aller Speisen'),
+                                style={'textAlign': 'center'}),
+                        dbc.Row([
+                            dbc.Col(
+                                html.Div(
+                                    id='page2_items',
+                                    children=[
+                                        dbc.ListGroup(
+                                            id='listgroup_total',
+                                            style={'marginTop': '10px', 'marginLeft': '10px'})
+                                    ]), width=3
+                            ),
+                            dbc.Col(
+                                html.Div(id='pie_total')
+                            )
+                        ], style={'alignItems': 'center'})
+                    ], className='pretty_container nine columns'),
+                ], className='row flex-display'),
+
+                # Details (section 2)
+                html.Div([
+                    html.Div(html.H4('Speisen pro Tisch'), style={
+                            'textAlign': 'center', 'marginTop': '70px'}),
+                    dcc.Loading(html.Div(id='for_each_card'))
+                ]),
+
+            ])
+        ]),
+
+        dcc.Tab(
+            label='Historical sales', 
+            value='historical', 
+            className='custom-tab',
+            selected_className='custom-tab--selected',
+            children=[
+            html.Div(id='mainContainer', children=[
+                html.Div([
+                        html.Div([
+                            html.Div([
+                                html.P('Select a timeframe ', className='control_label'),
+                                html.Div(
+                                    dcc.DatePickerRange(
+                                        id='timeframe_picker',
+                                        start_date='',
+                                        end_date='',
+                                        updatemode='singledate',
+                                        display_format='YYYY-MM-DD',
+                                        style={'margin': '15px'}
+                                    ),
+                                    className=''
+                                ),
+                                html.Div([
+                                    dbc.Button('Apply timeframe', id='apply_timeframe'),
+                                ])
+                            ], style={'display': 'flex', 'flexDirection': 'row', 'alignItems': 'center'})
+                        ], className='pretty_container four columns'),  
+                        html.Div(html.H5('All information below is based on the timeframe you selected ... '), className='pretty_container seven columns')
+                ], className='row flex-display'),
+                html.Div(children=[
+                    html.Div(children=[
+                        html.Div(
+                            html.H5('The total quantity of food sold per table'), 
+                            style={'textAlign': 'center', 'marginBottom': '30px'}
+                        ),
+                        dcc.Loading(html.Div(id='food_qt_per_table'))
+                    ], className='pretty_container four columns'),
+
+                    html.Div(
+                        dcc.Loading(html.Div(id='historical_per_table')), 
+                        className='pretty_container seven columns'
+                    ),
+
+                ], className='row flex-display'),
+
+                # Details (section 2)
+                html.Div(
+                    children=[
+                        html.Div(id='historical_per_food_table', className='pretty_container six columns'),
+                        html.Div([
+                            html.Div(id='section_2'), 
+                            html.Div(id='historical_table')
+                        ], className='pretty_container five columns'), 
+                    ], 
+                    className='row flex-display'),
+
+            ])
+        ])
+    ])
+])
 
 @app.callback(
     Output('historical_sales', 'data'),
-    Output('detail_content', 'children'),
-    Input('detail_tab', 'active_tab'), 
-    State('historical_sales', 'data')
+    Output('timeframe_picker', 'start_date'),
+    Output('timeframe_picker', 'end_date'),
+    Input('dashboard_tabs', 'value'), 
+    Input('apply_timeframe', 'n_clicks'),
+    State('historical_sales', 'data'),
+    State('timeframe_picker', 'start_date'),
+    State('timeframe_picker', 'end_date'),
 )
-def show_detail(detail_tab, historical_sales): 
-    historical_sales= historical_sales or crud_op_db.historical()
+def update_historical_data(dashboard_tabs, apply_timeframe, historical_sales, start_date, end_date): # 
+    context = dash.callback_context.triggered
+    if dashboard_tabs=='general': 
+        historical_sales = crud_op_db.historical()
+        return historical_sales, '', ''
+    
     historical_sales = pd.DataFrame.from_dict(historical_sales)
+    if context[0]['prop_id'] == 'apply_timeframe.n_clicks':
+        historical_sales = historical_sales.loc[
+                (historical_sales['sales_created'] >= start_date) &
+                (historical_sales['sales_created'] <= end_date)
+            ]
+        return historical_sales.to_dict('records'), start_date, end_date
+    
+    # Init start and end dates
     start_date = min(historical_sales['sales_created'])
     end_date = max(historical_sales['sales_created'])
-    historical_sales = historical_sales.to_dict('records')
-
-    if detail_tab == 'general':
-        layout = html.Div(id='mainContainer', children=[
-            html.Div(children=[
-                components.dashboard_filter(),
-                html.Div([
-                    html.Div(html.H4('Gesamtübersicht aller Speisen'),
-                             style={'textAlign': 'center'}),
-                    dbc.Row([
-                        dbc.Col(
-                            html.Div(
-                                id='page2_items',
-                                children=[
-                                    dbc.ListGroup(
-                                        id='listgroup_total',
-                                        style={'marginTop': '10px', 'marginLeft': '10px'})
-                                ]), width=3
-                        ),
-                        dbc.Col(
-                            html.Div(id='pie_total')
-                        )
-                    ], style={'alignItems': 'center'})
-                ], className='pretty_container nine columns'),
-            ], className='row flex-display'),
-
-            # Details (section 2)
-            html.Div([
-                html.Div(html.H4('Speisen pro Tisch'), style={
-                         'textAlign': 'center', 'marginTop': '70px'}),
-                dcc.Loading(html.Div(id='for_each_card'))
-            ]),
-
-        ])
-    
-    else:
-        layout = html.Div(id='mainContainer', children=[
-            html.Div([
-                    html.Div([
-                        html.Div([
-                            html.P('Select a timeframe ', className='control_label'),
-                            html.Div(
-                                dcc.DatePickerRange(
-                                    id='timeframe_picker',
-                                    start_date=start_date,
-                                    end_date=end_date,
-                                    updatemode='singledate',
-                                    display_format='YYYY-MM-DD',
-                                    style={'margin': '15px'}
-                                ),
-                                className=''
-                            ),
-                            html.Div(
-                                dbc.Button('Apply timeframe', id='apply_timeframe')
-                            )
-                        ], style={'display': 'flex', 'flexDirection': 'row', 'alignItems': 'center'})
-                    ], className='pretty_container four columns'),  
-                    html.Div(html.H5('Display some metadata here!'), className='pretty_container seven columns')
-            ], className='row flex-display'),
-            html.Div(children=[
-                html.Div(children=[
-                    html.Div(
-                        html.H5('The total quantity of food sold per table'), 
-                        style={'textAlign': 'center', 'marginBottom': '30px'}
-                    ),
-                    dcc.Loading(html.Div(id='food_qt_per_table'))
-                ], className='pretty_container four columns'),
-
-                html.Div(
-                    dcc.Loading(html.Div(id='historical_per_table')), 
-                    className='pretty_container seven columns'
-                ),
-
-            ], className='row flex-display'),
-
-            # Details (section 2)
-            html.Div(
-                children=[
-                    html.Div(id='historical_per_food_table', className='pretty_container six columns'),
-                    html.Div([
-                        html.Div(id='section_2'), 
-                        html.Div(id='historical_table')
-                    ], className='pretty_container five columns'), 
-                ], 
-                className='row flex-display'),
-
-        ])
-    
-    return historical_sales, layout
+    return historical_sales.to_dict('records'), start_date, end_date
 
 
 @app.callback(
@@ -182,7 +197,7 @@ def show_more_details(historical_sales):
     top_by_price.update_layout(
         paper_bgcolor="#F9F9F9",
         plot_bgcolor="#F9F9F9",
-        margin=dict(t=0, r=0, b=120, l=0),
+        margin=dict(t=0, r=0, b=70, l=0),
         autosize=True,
         height=250
     )
@@ -260,12 +275,11 @@ def display_graphs(apply_filter, filter_result):
 
 @app.callback(
     Output('food_qt_per_table', 'children'), 
-    Input('detail_tab', 'active_tab'),
-    State('historical_sales', 'data')
+    Input('historical_sales', 'data')
 )
-def show_per_table(detail_tab, historical_sales):
+def show_per_table(historical_sales):
 
-    if historical_sales and detail_tab == 'historical_sales': 
+    if historical_sales: 
         historical_sales = pd.DataFrame.from_dict(historical_sales)
         food_per_table_df = historical_sales.groupby(['table']).agg({
             'available_quantity': 'sum',
@@ -336,14 +350,7 @@ def show_historical(hoverData, historical_sales):
                 )
             ]
             target_table_2 = hourly_df_2.loc[hourly_df_2['Table']==table[0]]
-            food_per_table = [
-                html.Div(
-                    html.H5(f'All foods that sold in Table - {table[0]}'), 
-                    style={'textAlign': 'center', 'marginBottom': '30px'}
-                ),
-                html.Div(dbc.Table.from_dataframe(target_table_2.filter(['Date', 'Price', 'Total quantity', 'Food', 'Bonus']), striped=True, bordered=True, hover=True))
-            ]
-            table = [
+            foods_per_table = [
                 html.Div(
                     html.H5(f'All historical sales for all foods sold in Table - {table[0]}'), 
                     style={'textAlign': 'center', 'marginBottom': '30px'}
@@ -360,7 +367,15 @@ def show_historical(hoverData, historical_sales):
                         'displayModeBar': False
                     }
                 ))]
-            return historical_per_table, food_per_table, table
+            target_table_2['Date'] = pd.to_datetime(target_table_2['Date']).dt.date
+            food_per_table = [
+                html.Div(
+                    html.H5(f'Daily historical sales in all the tables (Table - {table[0]})'), 
+                    style={'textAlign': 'center', 'marginBottom': '30px'}
+                ),
+                html.Div(dbc.Table.from_dataframe(target_table_2.filter(['Date', 'Price', 'Total quantity', 'Food', 'Bonus']), striped=True, bordered=True, hover=True))
+            ]
+            return historical_per_table, food_per_table, foods_per_table
     
     else: 
         historical_per_table = [
@@ -381,14 +396,7 @@ def show_historical(hoverData, historical_sales):
                     }
                 )
             ]
-        food_per_table = [
-            html.Div(
-                html.H5(f'Daily historical sales (Table - ALL)'), 
-                style={'textAlign': 'center', 'marginBottom': '30px'}
-            ),
-            html.Div(dbc.Table.from_dataframe(hourly_df_2.filter(['Date', 'Price', 'Total quantity', 'Food', 'Bonus']), striped=True, bordered=True, hover=True))
-        ]
-        table = [
+        foods_per_table = [
             html.Div(
                 html.H5(f'All historical sales for all foods sold in Table - ALL'), 
                 style={'textAlign': 'center', 'marginBottom': '30px'}
@@ -405,7 +413,15 @@ def show_historical(hoverData, historical_sales):
                         'displayModeBar': False
                     }
                 ))]
-        return historical_per_table, food_per_table, table
+        hourly_df_2['Date'] = pd.to_datetime(hourly_df_2['Date']).dt.date
+        food_per_table = [
+            html.Div(
+                html.H5(f'Daily historical sales in the selected table (Table - ALL)'), 
+                style={'textAlign': 'center', 'marginBottom': '30px'}
+            ),
+            html.Div(dbc.Table.from_dataframe(hourly_df_2.filter(['Date', 'Price', 'Total quantity', 'Food', 'Bonus']), striped=True, bordered=True, hover=True))
+        ]
+        return historical_per_table, food_per_table, foods_per_table
 
 
 @app.callback(
@@ -526,7 +542,7 @@ def update_result(
     Output('phrase', 'value'),
     Output('gang_number', 'value'),
     Input('reset_filters', 'n_clicks'),
-    State('historical_sales', 'data')
+    Input('historical_sales', 'data')
 )
 def reset_filters(reset_filters, historical_sales):
     if not historical_sales:
