@@ -58,7 +58,7 @@ def successful(n_clicks, input1, input2):
     , [State('uemail_box', 'value'), State('pwd_box', 'value')])
 def update_output(n_clicks, input1, input2):
     if n_clicks > 0:
-        user = User.query.filter_by(user_email=input1).first()
+        user = User.query.filter_by(user_email=input1.strip()).first()
         if user:
             if check_password_hash(user.user_password, input2):
                 return ''

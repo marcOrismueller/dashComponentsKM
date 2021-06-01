@@ -128,7 +128,7 @@ def extract_header_infos(header='PIZZA&PASTA 15-Apr-21 15:55 5 Restaurant Hypers
         'card_time': '',
         'station': '',
         'waitress': '',
-        'process': '',
+        'process': 0,
         'table': ''
     }
     infos = header.split()

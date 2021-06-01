@@ -2,11 +2,11 @@ import dash
 import dash_bootstrap_components as dbc
 import warnings
 import datetime
-from sqlalchemy import Table, create_engine, ForeignKey, DateTime
+from sqlalchemy import Table, create_engine, DateTime
 from flask_sqlalchemy import SQLAlchemy
 import configparser
 import os
-from flask_login import logout_user, LoginManager, UserMixin
+from flask_login import LoginManager, UserMixin
 import configs
 
 warnings.filterwarnings("ignore")
@@ -15,7 +15,7 @@ external_stylesheets = [
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css', 
     ]
 
-credentials_db = f'mysql://{configs.username}:{configs.password}@{configs.ip}/{configs.database}'
+credentials_db = f'mysql+mysqldb://{configs.username}:{configs.password}@{configs.host}:{configs.port}/{configs.database}'
 engine = create_engine(credentials_db)
 db = SQLAlchemy()
 config = configparser.ConfigParser()

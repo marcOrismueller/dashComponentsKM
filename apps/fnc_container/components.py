@@ -502,7 +502,7 @@ def no_data_toast():
                 html.Div([
                     html.Div([
                         html.Div([
-                            html.H4('No Data available ..! please Updoad some foods data.'),
+                            html.H4('No data available ..! please Updoad some foods data.'),
                         ], className='form-row', style={'marginTop': '30px'}),
                     ]),
                     html.Div([

@@ -215,10 +215,10 @@ def insert_users(
                         user_password
                     ) 
                 VALUES (
-                    '{ufname_box}',
-                    '{ulname_box}',
-                    '{uemail_box}', 
-                    '{ucode_box} {uphone_box}',
+                    '{ufname_box.strip()}',
+                    '{ulname_box.strip()}',
+                    '{uemail_box.strip()}', 
+                    '{ucode_box.strip()} {uphone_box.strip()}',
                     '{hashed_password}'
                 );
             """)
