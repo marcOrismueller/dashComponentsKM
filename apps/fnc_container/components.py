@@ -517,7 +517,7 @@ def no_data_toast():
 def dashboard_filter():
     filter = html.Div(id='cross-filter-options', children=[
                     html.P('Filter by date range:', className='control_label'),
-                    html.Div(
+                    dcc.Loading(html.Div(
                         dcc.DatePickerRange(
                             id='date_range_picker',
                             start_date='',
@@ -526,7 +526,7 @@ def dashboard_filter():
                             display_format='YYYY-MM-DD'
                         ),
                         className='dcc_control'
-                    ),
+                    )),
 
                     html.P('Filter by specific date:',
                            className='control_label'),
