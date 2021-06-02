@@ -132,7 +132,7 @@ layout = html.Div(
                 ),
             ], width={"size": 6, "offset": 3})
         ], style={'alignItems': 'center'}),
-        dbc.Row(id='upload_alert'),
+        dcc.Loading(dbc.Row(id='upload_alert')),
         dbc.Row([
             dbc.Col([
                 dcc.Link(
