@@ -15,7 +15,7 @@ external_stylesheets = [
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css', 
     ]
 
-credentials_db = f'mysql+mysqldb://{configs.username}:{configs.password}@{configs.host}:{configs.port}/{configs.database}'
+credentials_db = f'mysql+pymysql://{configs.username}:{configs.password}@{configs.host}:{configs.port}/{configs.database}'
 engine = create_engine(credentials_db)
 db = SQLAlchemy()
 config = configparser.ConfigParser()
