@@ -2,7 +2,7 @@ import dash_core_components as dcc
 from dash_core_components.Store import Store
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
-from app import app, login_manager, User
+from app import app, server, login_manager, User
 from apps import load_data, cards_list, details, auth_login, auth_signup
 from apps.fnc_container import components
 from flask_login import current_user, logout_user
@@ -68,4 +68,4 @@ def display_page(pathname):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False, threaded=True)
+    app.run_server(debug=False)

@@ -39,7 +39,7 @@ layout = html.Div([
                                     ]), width=3
                             ),
                             dbc.Col(
-                                html.Div(id='pie_total')
+                                dcc.Loading(html.Div(id='pie_total'))
                             )
                         ], style={'alignItems': 'center'})
                     ], className='pretty_container nine columns'),
