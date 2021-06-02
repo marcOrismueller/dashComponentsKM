@@ -118,11 +118,14 @@ def build_a_link(current_page, current_user):
             label=f"Hi {current_user.user_fname.title()}!",
         )
         # make a reuseable navitem for the different examples
-        nav_item = dbc.NavItem(
-            dbc.Button("Filter", outline=True, color="secondary",
-                       className="mr-1", id="btn_filter_modal", n_clicks=0),
-            style={'marginRight': '30px'}
-        )
+        if current_page == '/items-selection':
+            nav_item = dbc.NavItem(
+                dbc.Button("Filter", outline=True, color="secondary",
+                        className="mr-1", id="btn_filter_modal", n_clicks=0),
+                style={'marginRight': '30px'}
+            )
+        else: 
+            nav_item = dbc.NavItem('')
         links = dbc.Nav([nav_item, dropdown], className="ml-auto", navbar=True)
     else:
         links = dbc.Nav(dcc.Link('Login', href='/login'),

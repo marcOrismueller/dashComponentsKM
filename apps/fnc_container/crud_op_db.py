@@ -192,10 +192,11 @@ def update_filter_options(table):
     rows = conn.execute(q)
     conn.close()
     data = pd.DataFrame(rows.fetchall()) 
-    data.columns = [key.replace('food_', '') for key in rows.keys()]
-    data['selected'] = 0
-    return data
-
+    if not data.empty:
+        data.columns = [key.replace('food_', '') for key in rows.keys()]
+        data['selected'] = 0
+        return data
+    return None
 
 def init_cards_tracer(): 
     q = f"""

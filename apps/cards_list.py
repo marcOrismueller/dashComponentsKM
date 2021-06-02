@@ -443,8 +443,9 @@ def toggle_modal(
 def update_filter_options(btn_filter_modal): 
     if btn_filter_modal:
         data = crud_op_db.update_filter_options('food') 
-        result = {'foods': data.to_dict('records')}
-        return result
+        if data is not None:
+            result = {'foods': data.to_dict('records')}
+            return result
     return None
 
 @app.callback(
