@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash
 import sqlite3
 from app import app, engine
 from datetime import datetime
+from sqlalchemy import exc
 
 layout = html.Div(id='registration', children=[
     html.Div(id='create_user_output'),
@@ -100,15 +101,8 @@ layout = html.Div(id='registration', children=[
                     ], className='form-row'),
                 ], className='signup_disabled', style={'marginTop': '30px'}),
                 html.Div([
-
-                ], className='form-checkbox'),
-                html.Div([
-                    dbc.Button('Register', className='submit',
-                               id='register_btn', n_clicks=0),
-                ], className='form-row-last'),
-                html.Div([
                     dbc.Toast(
-                        "Please make sure you have entered all the required information!!",
+                        "Something went wrong, Please make sure you have entered a information and unique email addr!!",
                         id="error_input_popup",
                         header="Invalid Informations",
                         is_open=False,
@@ -119,7 +113,7 @@ layout = html.Div(id='registration', children=[
                                "right": 10, "width": 350},
                         className='toast'
                     ),
-                    dbc.Toast(
+                    dcc.Loading(dbc.Toast(
                         "Your account has been successfully registered. Please Log in to your account",
                         id="success_input_popup",
                         header="Success ",
@@ -130,8 +124,12 @@ layout = html.Div(id='registration', children=[
                         style={"position": "fixed", "top": 66,
                                "right": 10, "width": 350},
                         className='toast'
-                    ),
-                ])
+                    )),
+                ]),
+                html.Div([
+                    dbc.Button('Register', className='submit',
+                               id='register_btn', n_clicks=0),
+                ], className='form-row-last'),
             ], className='form-right')
         ], className='form-detail')
     ], className='form-v10-content')
@@ -205,23 +203,27 @@ def insert_users(
             # connection.row_factory = sqlite3.Row
             # conn = connection.cursor()
             conn = engine.connect()
-            conn.execute(f"""
-                INSERT INTO user 
-                    (
-                        user_fname, 
-                        user_lname, 
-                        user_email,
-                        user_phone,
-                        user_password
-                    ) 
-                VALUES (
-                    '{ufname_box.strip()}',
-                    '{ulname_box.strip()}',
-                    '{uemail_box.strip()}', 
-                    '{ucode_box.strip()} {uphone_box.strip()}',
-                    '{hashed_password}'
-                );
-            """)
+            try:
+                conn.execute(f"""
+                    INSERT INTO user 
+                        (
+                            user_fname, 
+                            user_lname, 
+                            user_email,
+                            user_phone,
+                            user_password
+                        ) 
+                    VALUES (
+                        '{ufname_box.strip()}',
+                        '{ulname_box.strip()}',
+                        '{uemail_box.strip()}', 
+                        '{ucode_box.strip()} {uphone_box.strip()}',
+                        '{hashed_password}'
+                    );
+                """)
+            except exc.IntegrityError:
+                conn.close()
+                return '/signup', True, False
             conn.close()
             return '/login', False, True
 
