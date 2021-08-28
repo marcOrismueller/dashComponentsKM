@@ -9,7 +9,9 @@ from flask_login import current_user, logout_user
 
 app.layout = html.Div([
     html.Div(id='logout'),
+    dcc.Store(id='test'),
     dcc.Store(id='filter_options'),
+    dcc.Store(id='currentSelectedlistItem'),
     dcc.Store(id='pagination_status'),
     dcc.Store(id='food_tracer'),
     dcc.Store(id='filtred_cards_tmp'), 

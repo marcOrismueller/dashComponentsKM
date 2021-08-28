@@ -80,7 +80,7 @@ layout = html.Div(
             header="Upload Data ",
             is_open=False,
             #dismissable=True,
-            duration=4000,
+            duration=2000,
             icon="success",
             # top: 66 positions the toast below the navbar
             style={"position": "fixed", "top": 66,

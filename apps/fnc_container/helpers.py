@@ -7,7 +7,7 @@ import hashlib
 import json
 from app import engine
 from apps.fnc_container import crud_op_db
-
+import dash_dangerously_set_inner_html
 
 def hash_name(name=None):
     new_name = ""
@@ -18,19 +18,57 @@ def hash_name(name=None):
         new_name.encode('utf-8')).hexdigest(), 16) % 10**8
     return str(hashName)
 
+def list_items(product_type):
+    price = "{:0,.2f}".format(float(product_type['price'])).replace('.', ',')
+    disabled = False
+    bonusBtnStyle = 'bonus_btn'
+    if product_type['bonus'].strip() == '':
+        disabled = True 
+        bonusBtnStyle = 'bonus_btn_disabled'
+    items = [
+        html.Div([
+                html.B(f"{product_type['production']}/{product_type['available_quantity']} {product_type['type_only']} {price}", className='main-food'),
+                html.Div([
+                    html.Span(b) for b in product_type['bonus'].split('\n')
+                ], 
+                className='hide-bonus',
+                id={'id': 'bonus_section', 'index': product_type['type_id_str']} 
+                )
+            ], 
+            className='listItemBtn', 
+            id={'id': 'lst_item_btn', 'index': product_type['type_id_str']}
+        ),
+        html.Button(
+            dash_dangerously_set_inner_html.DangerouslySetInnerHTML(f'''
+                    <i class="fa fa-chevron-circle-down fa-2x" aria-hidden="true"></i>               
+                '''),  
+            id={
+                'id': 'bonus_btn',
+                'index': product_type['type_id_str']
+            },
+            disabled=disabled, 
+            className=bonusBtnStyle
+        )
+            
+    ]
+    return html.Div(items, style={'display': 'flex', 'flexDirection':'row', 'alignItems': 'baseline'})
+
+
 
 def type_line_break(product_type, btns=False, quantity=True):
     price = "{:0,.2f}".format(float(product_type['price'])).replace('.', ',')
     if btns:
         if quantity:
             return [
-                html.B(l)
-                for l in f"{product_type['production']}/{product_type['available_quantity']} {product_type['type_only']} {price}\n{product_type['bonus']}".split('\n')
+                html.B(f"{product_type['production']}/{product_type['available_quantity']} {product_type['type_only']} {price}", className='main-food'),
+                html.Div([
+                    html.Span(b) for b in product_type['bonus'].split('\n')
+                ], className='bonus')
             ]
         else:
             return [
                 html.P(l)
-                for l in f"{product_type['available_quantity']} {product_type['type_only']} {price}\n{product_type['bonus']}".split('\n')
+                for l in f"{product_type['available_quantity']} {product_type['type_only']} {price}".split('\n')
             ]
     return f"{product_type['type']} {price} \n{product_type['bonus']}"
 
@@ -38,6 +76,74 @@ def type_line_break(product_type, btns=False, quantity=True):
 def divide_chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
+
+
+def card_body(b, previous_selected):
+    result = []
+    for gang_number in b.sort_values(by='gang_number')['gang_number'].drop_duplicates():
+        options = []
+        for i, opt in b.loc[b['gang_number'] == gang_number].reset_index(drop=True).iterrows():
+            if i == 0:
+                gang = html.Div([
+                        html.Div([
+                                html.H6(opt['gang_title']),
+                            ], 
+                            className='card-item', 
+                            id={'id': 'card_body_value_gang', 'index': f'{opt["type_id_int"]}_{gang_number}'}
+                        ),
+                        html.Button(
+                            dash_dangerously_set_inner_html.DangerouslySetInnerHTML(f'''
+                                    <i class="fa fa-expand fa-2x" aria-hidden="true"></i>               
+                                '''),  
+                            id={
+                                'id': 'show_gang_items',
+                                'index': f'{opt["type_id_int"]}_{gang_number}'
+                            },
+                            className='bonus_btn'
+                        )
+                    ], className='gang-items', style={'display': 'none' if gang_number==0 else 'flex'})
+            price = "{:0,.2f}".format(float(opt['price'])).replace('.', ',')
+                
+            options.append(
+                html.Div([
+                    html.Div([
+                        html.B(
+                            f"{opt['type']} {price}", 
+                            className='main-food'
+                        ),
+                        html.Div([
+                                html.Span(b) for b in opt['bonus'].split('\n')
+                            ], 
+                            className='hide-bonus',
+                            id={'id': 'bonus_section_card', 'index': f"{opt['type_id_int']}_{gang_number}_{opt['type_id_str']}"} 
+                        )], 
+                        className='card-item crossout-item' if f"{opt['type_id_int']}_{gang_number}_{opt['type_id_str']}" in previous_selected else 'card-item', 
+                        id={'id': 'card_body_value', 'index': f"{opt['type_id_int']}_{gang_number}_{opt['type_id_str']}"},
+                        n_clicks=1 if f"{opt['type_id_int']}_{gang_number}_{opt['type_id_str']}" in previous_selected else 0
+                    ),
+                    html.Button(
+                        dash_dangerously_set_inner_html.DangerouslySetInnerHTML(f'''
+                                <i class="fa fa-chevron-circle-down fa-2x" aria-hidden="true"></i>               
+                            '''),  
+                        id={
+                            'id': 'bonus_btn_card',
+                            'index': f"{opt['type_id_int']}_{gang_number}_{opt['type_id_str']}"
+                        },
+                        disabled= True if opt['bonus'].strip() == '' else False, 
+                        className= 'bonus_btn_disabled' if opt['bonus'].strip() == '' else 'bonus_btn'
+                    )
+                ], className='gang-items')
+            )
+        result.append(html.Div([
+            gang, 
+            html.Div(
+                options, 
+                className= '' if gang_number==0 else 'hide', 
+                style={'marginLeft': '15px'}, id={'id': 'gang_items', 'index': f'{opt["type_id_int"]}_{gang_number}'}
+            )
+        ]))
+    return result
+
 
 
 def create_checkbox_opt(b):
@@ -291,6 +397,40 @@ def intersection(current, food_tracer):
     return result
 
 
+def item_selected(food_tracer, context): 
+    context_dict = json.loads(context[0].get('prop_id', None).split('.')[0])
+    if len(context_dict['index'].split('_')) > 2 :
+        type_id_int = int(context_dict['index'].split('_')[0])
+        gang_number = int(context_dict['index'].split('_')[1])
+        type_id_str = context_dict['index'].split('_')[2]
+        if context[0]['value']%2==0:
+            food_tracer['selected'] = np.where(
+                    (food_tracer['type_id_int'] == type_id_int) & (
+                        food_tracer['type_id_str'] == type_id_str), 0, food_tracer['selected']
+                )
+        else:
+            food_tracer['selected'] = np.where(
+                        (food_tracer['type_id_int'] == type_id_int) & (
+                            food_tracer['type_id_str'] == type_id_str), 1, food_tracer['selected']
+                    )
+    else: 
+        if context[0]['value']%2==0:
+            food_tracer['selected'] = np.where(
+                    (food_tracer['type_id_int'] == int(context_dict['index'].split('_')[0])) & (
+                        food_tracer['gang_number'] == int(context_dict['index'].split('_')[1])),
+                    0,
+                    food_tracer['selected']
+                )
+        else: 
+            food_tracer['selected'] = np.where(
+                (food_tracer['type_id_int'] == int(context_dict['index'].split('_')[0])) & (
+                    food_tracer['gang_number'] == int(context_dict['index'].split('_')[1])),
+                1,
+                food_tracer['selected']
+            )
+    return food_tracer
+
+
 def insert_selected_item(food_tracer, context):
     value = context[0].get('value', None)
     context_dict = context[0].get('prop_id', None)
@@ -373,3 +513,7 @@ def groupdf(df):
     df.loc[mask, 'Food'] += df.groupby('Food').cumcount().add(1).astype(str)
     
     return df
+
+def all_selected(selectedCardItems, id):
+    id = id.split('_')[1:]
+    return set(selectedCardItems) == set(id)
