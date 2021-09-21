@@ -353,7 +353,7 @@ def extract_card_info(infos, header, idx):
                     bonus.append(chunk)
                 else:
                     row.update(get_type_details(chunk))
-            row['type_id_str'] = hash_name(info)
+            row['type_id_str'] = hash_name(info+' '+header)
             row['bonus'] = '\n'.join(bonus)
             row['type_id_int'] = idx
             row['bonus_separtor'] = bonus_separtor
@@ -389,13 +389,39 @@ def foods_listing(df):
     result['available_quantity'] -= result['production']
     return result
 
+def init_cards_state(row, selected):
+    inProduction = list(dict.fromkeys([int(x.split('_')[0]) for x in selected]))
+    selectedItems = list(dict.fromkeys([str(x.split('_')[-1]) for x in selected]))
+    if int(row['type_id_int']) in inProduction: 
+        row['production'] = row['available_quantity']
+    else: 
+        row['production'] = 0
+    
+    if str(row['type_id_str']) in selectedItems: 
+        row['selected'] = 1
+    else: 
+        row['selected'] = 0
 
-def intersection(current, food_tracer):
+    return row
+
+def intersection(current, food_tracer, selected=None):
+    if selected:
+        food_tracer = food_tracer.apply(init_cards_state, selected=selected, axis=1)
+        result = pd.merge(
+            current.drop(['production', 'selected'], axis=1), food_tracer.drop(['available_quantity', 'gang_number'], axis=1), how='left', on=['type_id_int', 'type_id_str']
+        )
+        result = result.apply(init_cards_state, selected=selected, axis=1)
+        result['available_quantity'] = result['available_quantity'].astype(int)
+        result['production'] = result['production'].astype(int)
+        result['gang_number'] = result['gang_number'].astype(int)
+        return result, food_tracer
     result = pd.merge(
-        current.drop(['available_quantity', 'production', 'selected', 'gang_number'], axis=1), food_tracer, how='left', on=['type_id_int', 'type_id_str']
-    )
-    return result
-
+            current.drop([ 'production', 'selected'], axis=1), food_tracer.drop(['available_quantity', 'gang_number'], axis=1), how='left', on=['type_id_int', 'type_id_str']
+        )
+    result['available_quantity'] = result['available_quantity'].astype(int)
+    result['production'] = result['production'].astype(int)
+    result['gang_number'] = result['gang_number'].astype(int)
+    return result, food_tracer
 
 def item_selected(food_tracer, context): 
     context_dict = json.loads(context[0].get('prop_id', None).split('.')[0])

@@ -2,6 +2,43 @@ from app import engine
 from flask_login import current_user
 import pandas as pd
 
+def update_printers_folder_path(folderPath):
+    conn = engine.connect()
+    x = '\\'
+    x2 = '\\\\'
+    newFolderPath = folderPath.replace("/", "//").replace(x, x2)
+    res = conn.execute(f'''
+        INSERT INTO account_configs (
+            user_id,
+            orders_folderPath
+        ) VALUES (
+            {current_user.id},
+            '{newFolderPath}'
+        ) ON DUPLICATE KEY UPDATE orders_folderPath='{newFolderPath}';
+    ''')
+    conn.close()
+    return res
+
+def get_printer_folder_path():
+    conn = engine.connect()
+    result = conn.execute(f'''
+        SELECT orders_folderPath as folderPath, lastFileTimestamp as lastFileTs
+        FROM account_configs
+        WHERE user_id={current_user.id}
+    ''' ).fetchone()
+    conn.close()
+    return result
+
+def update_lastFileTs(ts):
+    conn = engine.connect()
+    res = conn.execute(f'''
+        UPDATE account_configs 
+        SET lastFileTimestamp = '{ts}'
+        WHERE user_id={current_user.id}
+    ''')
+    conn.close()
+    return res 
+
 def update_foods(df):
     conn = engine.connect()
     for i, row in df.iterrows():

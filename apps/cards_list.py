@@ -10,9 +10,11 @@ from app import app
 import pandas as pd
 from apps.fnc_container import crud_op_db, helpers as hlp
 from apps.fnc_container import components as components
+from apps.fnc_container import read_files 
 from datetime import datetime
 from flask_login import current_user
 import dash_dangerously_set_inner_html
+import datetime
 
 def show_items(listgroup_values, mainCallBack=True):
     listgroup_values = listgroup_values.sort_values(by=['type'])
@@ -137,6 +139,10 @@ layout = html.Div(
         components.filter_modal,
         html.Div(children=[
             html.Div(id='no_data'),
+            html.Div(
+                html.P('Checking for new files in 02:59', id='server-time'),
+                className='countdown'
+            ),
             html.Div([
                 html.Div(
                     children=[
@@ -162,15 +168,32 @@ layout = html.Div(
                 ], className='nine columns')
             ], className='row flex-display'),
 
-        ]),
+        ], className='cards-list'),
     ])
 
+
+# using serverside callback
+@app.callback(
+    Output('server-time', 'children'),
+    Output('update_trigger', 'data'), 
+    Input('get_files_interval', 'n_intervals'),
+)
+def update_timer(n_intervals):
+    mins, secs = divmod(30-(n_intervals%30), 60)
+    timer = '{:02d}:{:02d}'.format(mins, secs)
+    if 30-(n_intervals%30) == 30: 
+        # Read the new files 
+        res = read_files.update_data()
+        return f'Checking for new files in {timer} (No data)', res
+    return f'Checking for new files in {timer}', False
+    
 
 # Fetch data from our database
 @app.callback(
     Output('input_data', 'data'),
     Output('pagination_status', 'data'),
-    Output('no_data', 'children'),
+    #Output('no_data', 'children'),
+    Input('update_trigger', 'data'), 
     Input('url', 'pathname'), 
     Input('prev', 'n_clicks'),
     Input('next', 'n_clicks'),
@@ -182,9 +205,35 @@ layout = html.Div(
     State({'id': 'card_body_value', 'index': ALL}, 'id'),
     prevent_initial_call=True
 )
-def fetch_data(pathname, prev, next, show_all, cardContainerClass, filtred_cards, pagination_status, selectedItems, selectedItemsIds):
+def fetch_data(update_trigger, pathname, prev, next, show_all, cardContainerClass, filtred_cards, pagination_status, selectedItems, selectedItemsIds):
     call_context = dash.callback_context.triggered[0]
     context = call_context['prop_id'].split('.')[0]
+    if 'update_trigger' in call_context['prop_id'] and not update_trigger:
+        raise PreventUpdate 
+    
+    if update_trigger: 
+        selected = []
+        for i, (n_clicks, id) in enumerate(zip(selectedItems, selectedItemsIds)):
+            if n_clicks is not None and n_clicks % 2 != 0: 
+                selected.append(selectedItemsIds[i].get('index'))
+        cards_df = crud_op_db.read_food_cards()
+        if not cards_df.empty:
+            pagination_status = {
+                'first_id': min(cards_df['type_id_int']),
+                'last_id': max(cards_df['type_id_int'])
+            }
+            return {
+                    'metadata': {
+                            'filter': False
+                        },
+                    'data': {
+                        'cards_values': cards_df.to_dict('records'),
+                        'selected': selected
+                        }
+                }, pagination_status #, ''
+        else: 
+            return {}, {} #, components.no_data_toast()
+
     if 'card_container' in call_context['prop_id']:
         context_dict = json.loads(call_context['prop_id'].split('.')[0])
         className = cardContainerClass[int(context_dict['index'].split('_')[1])]
@@ -211,9 +260,9 @@ def fetch_data(pathname, prev, next, show_all, cardContainerClass, filtred_cards
                             'cards_values': cards_df.to_dict('records'),
                             'selected': selected
                             }
-                    }, pagination_status, ''
+                    }, pagination_status #, ''
             else: 
-                return {}, {}, components.no_data_toast()
+                return {}, {} #, components.no_data_toast()
 
     if call_context['prop_id'] == 'filtred_cards_tmp.data':
         if filtred_cards: 
@@ -225,7 +274,7 @@ def fetch_data(pathname, prev, next, show_all, cardContainerClass, filtred_cards
                 'data': {
                     'cards_values': cards.to_dict('records')
                 }
-            }, pagination_status, ''
+            }, pagination_status #, ''
         else: 
             raise PreventUpdate
 
@@ -245,7 +294,7 @@ def fetch_data(pathname, prev, next, show_all, cardContainerClass, filtred_cards
                     },
                     'data': {
                             'cards_values': cards_df.to_dict('records')
-                        }}, pagination_status, ''
+                        }}, pagination_status #, ''
 
         elif context == 'prev': 
             # get the previous 10 cards
@@ -264,7 +313,7 @@ def fetch_data(pathname, prev, next, show_all, cardContainerClass, filtred_cards
                     },
                     'data': {
                         'cards_values': cards_df.to_dict('records')
-                        }}, pagination_status, ''
+                        }}, pagination_status #, ''
 
         elif context == 'show_all': 
             cards_df = crud_op_db.read_food_cards(show_all=True)
@@ -279,7 +328,7 @@ def fetch_data(pathname, prev, next, show_all, cardContainerClass, filtred_cards
                     },
                     'data': {
                         'cards_values': cards_df.to_dict('records')
-                        }}, pagination_status, ''
+                        }}, pagination_status #, ''
             
         raise PreventUpdate
 
@@ -296,9 +345,10 @@ def fetch_data(pathname, prev, next, show_all, cardContainerClass, filtred_cards
                     },
                 'data': {
                     'cards_values': cards_df.to_dict('records')
-                    }}, pagination_status, ''
+                    }}, pagination_status #, ''
         else: 
-            return {}, {}, components.no_data_toast()
+            return {}, {} #, components.no_data_toast()
+
     else:
         raise PreventUpdate
 
@@ -348,7 +398,8 @@ def enable_card(subBtn, subBtnState):
     prevent_initial_call=False
 )   
 def destroy_card(subBtn, subBtnState, food_tracer, input_data, is_open):  #, selectedCardItems
-    if subBtnState == 'Stop': 
+    
+    if subBtnState == 'Stop' and dash.callback_context.triggered[0]['value']: 
         context = json.loads(
             dash.callback_context.triggered[0].get('prop_id', None).split('.')[0]
         )
@@ -450,6 +501,7 @@ def select_item(cardItem, cardItemClass):
 )
 def update_list_items(input_data, start_btn, card_body_value, gangClicks, lst_item_btn, start_btn_status, cardBodyValueClass,food_tracer): #
     input_data = input_data or {'data': {}}
+
     current_cards = pd.DataFrame.from_dict(input_data['data'].get('cards_values', []))
     if current_cards.empty:
         raise PreventUpdate
@@ -470,26 +522,26 @@ def update_list_items(input_data, start_btn, card_body_value, gangClicks, lst_it
                 food_tracer,
                 type_id_int
             )
-            new_cards = hlp.intersection(current_cards, food_tracer)
+            new_cards, _ = hlp.intersection(current_cards, food_tracer)
             new_list = hlp.foods_listing(new_cards)
             return show_items(new_list, True), food_tracer.to_dict('records'), None
-
-    new_cards = hlp.intersection(current_cards, food_tracer)
-    new_list = hlp.foods_listing(new_cards)
-
+    
     if 'card_body_value' in cntxt and len(context) == 1: 
         food_tracer = hlp.item_selected(food_tracer, context)
-        new_cards = hlp.intersection(current_cards, food_tracer)
+        new_cards, _ = hlp.intersection(current_cards, food_tracer)
         new_list = hlp.foods_listing(new_cards)
         return show_items(new_list, True), food_tracer.to_dict('records'), None
     
     if  'lst_item_btn' in cntxt and len(context) == 1:
-        new_cards = hlp.intersection(current_cards, food_tracer)
+        new_cards, _ = hlp.intersection(current_cards, food_tracer)
         food_tracer = hlp.insert_selected_item_2(food_tracer, context, new_cards)
-        new_cards = hlp.intersection(current_cards, food_tracer)
+        new_cards, _ = hlp.intersection(current_cards, food_tracer)
         new_list = hlp.foods_listing(new_cards)
         context_dict = json.loads(cntxt.split('.')[0])
         return show_items(new_list, True), food_tracer.to_dict('records'), {'selectedItem': context_dict['index']}
+
+    new_cards, food_tracer = hlp.intersection(current_cards, food_tracer, input_data['data'].get('selected', None))
+    new_list = hlp.foods_listing(new_cards)
 
     return show_items(new_list, True), food_tracer.to_dict('records'), None
 
@@ -510,7 +562,7 @@ def update_card_item(currentListItem, gangClicks, foodTracer, cardBodyIds, cardB
         context_dict = json.loads(context)
         gang_items = context_dict['index'].split()
         idx = [i for i, d in enumerate(cardBodyIds) if f"{context_dict['index']}_" in d['index']]
-        if value%2 == 00:
+        if value%2 == 0:
             for i in idx: 
                 cardBodyVal[i] = 0
         else: 

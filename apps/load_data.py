@@ -9,32 +9,12 @@ from apps.fnc_container import helpers, crud_op_db
 import ast
 from flask_login import current_user
 from preprocessing import Preprocessing
-# Windows:
-#locale.setlocale(locale.LC_ALL, 'deu_deu')
-# Ubuntu (Deployement Version):
-#locale.setlocale(locale.LC_ALL, 'deu_deu.UTF-8')
 
-
-# input_data = [
-#     '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
-#     '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
-#     '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
-#     '1. Gang 1x Hühner-Kokosnuss-Suppe 8.50 1x Karotten-Ingwer-Suppe 4.50 1x Ribollita 6.50 2. Gang 1x Caesar Salat 10.00 1x Chef Salat 10.00 # French Dressing 1x Chef Salat 10.00 # American Dressing',
-#     '3. Gang 1x Burger Royal 21.00 # Bratkartoffel # extra Champignon + 1.50 1x Filet Steak 50.20 # 180 g 37,90 # Medium Rare (50øC) # Bratkartoffeln +4,90 # Kartoffelgratin +4,90 # Pepper Jus +2,50 1x Filet Steak 68.20 # 300 g 57,90 Medium Well (60øC) # Pommes +4,90 # Knoblauchbrot +2,90 # Sauce Bearnaise +2,50',
-# ]
-
-# cards_headers = [
-#     '16-Mar-21 13:15 1 Burgermeister',
-#     '17-Mar-21 14:12 Burgermeister 2',
-#     '18-Mar-21 13:15 Hypersoft 3 5',
-#     '18-Mar-21 13:15 Burgermeister 2',
-#     '19-Mar-21 13:15 Hypersoft 5 1',
-# ]
-# call Class & print results
 p = Preprocessing([
         '1 08-Mar-20 15:40 Hypersoft Technik 100',
         '3 09-Mar-20 11:39 Hypersoft Technik 100',
-        '5 26-Mar-21 14:01 1 Burgermeister', '8 01-Apr-21 09:03 1 Burgermeister 8',
+        '5 26-Mar-21 14:01 1 Burgermeister', 
+        '8 01-Apr-21 09:03 1 Burgermeister 8',
         'KALTE KÜCHE 06-Apr-21 08:46 Hypersoft 1',
         'KALTE KÜCHE 06-Apr-21 08:51 Hypersoft 88',
         'WARM / GRILL 06-Apr-21 08:51 Hypersoft 88',

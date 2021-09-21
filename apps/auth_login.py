@@ -6,7 +6,7 @@ import dash_core_components as dcc
 from dash.dependencies import Output, Input, State
 from app import app, User
 from werkzeug.security import check_password_hash
-from flask_login import login_user
+from flask_login import login_user, current_user
 
 layout = html.Div(children=[
     dcc.Location(id='url_login', refresh=True),
@@ -44,6 +44,7 @@ def successful(n_clicks, input1, input2):
         if user:
             if check_password_hash(user.user_password, input2):
                 login_user(user)
+                print(current_user.id)
                 return '/items-selection'
             else:
                 pass

@@ -107,6 +107,14 @@ def build_a_link(current_page, current_user):
                 dbc.DropdownMenuItem(divider=True),
                 dbc.DropdownMenuItem(
                     dcc.Link(
+                        'Config',
+                        href='/config',
+                        style=styleItems,
+                    )
+                ),
+                dbc.DropdownMenuItem(divider=True),
+                dbc.DropdownMenuItem(
+                    dcc.Link(
                         'Logout',
                         href='/logout',
                         style=styleItems,
@@ -130,68 +138,6 @@ def build_a_link(current_page, current_user):
     else:
         links = dbc.Nav(dcc.Link('Login', href='/login'),
                         className="ml-auto", navbar=True)
-    # links=[]
-    # if current_page == '/items-selection':
-    #     links = [
-    #             html.Div(id= 'go_to_details', children=[
-    #                     html.Div(
-    #                         dcc.Link(
-    #                             dbc.Button(
-    #                                 "Show Details", outline=True, color="secondary", className="mr-1"
-    #                             ),
-    #                             href='/subtraction-details',
-    #                             id='details_btn',
-    #                     ))
-    #                 ], style={'display': 'none'}),
-    #             dbc.Button("Filter", outline=True, color="secondary", className="mr-1", id="btn_filter_modal"),
-    #         ]
-
-    # elif '/subtraction-details':
-    #     links = [
-    #         dbc.Col(
-    #             html.A(
-    #                 dbc.Button(
-    #                     'Control Panel',
-    #                     outline=True,
-    #                     color="light",
-    #                     className="mr-1",
-    #                     style={'border': '0px'}
-    #                 ),
-    #                 href='/items-selection'
-    #             ),
-    #             width="auto"
-    #         ),
-    #         dbc.Col(
-    #             html.A(
-    #                 dbc.Button(
-    #                     'Data Board',
-    #                     outline=True,
-    #                     color="light",
-    #                     className="mr-1",
-    #                     style={'border': '0px'}
-    #                 ),
-    #                 href='/subtraction-details'
-    #             ),
-    #             width="auto"
-    #         ),
-    #     ]
-    # else:
-
-    # if current_user.is_authenticated:
-    #     links.append(html.Div(
-    #                 html.A('Logout', href='/logout'),
-    #                 id="login_status"
-    #             ))
-    # else:
-    #      links.append(html.Div(
-    #                 html.A('Login', href='/login'),
-    #                 id="login_status"
-    #             ))
-    # btn_link = dbc.Row(links,
-    #     no_gutters=True,
-    #     className="ml-auto flex-nowrap mt-3 mt-md-0",
-    #     align="center"
-    # )
     return links
 
 

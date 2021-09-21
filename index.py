@@ -3,13 +3,14 @@ from dash_core_components.Store import Store
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from app import app, server, login_manager, User
-from apps import load_data, cards_list, details, auth_login, auth_signup
+from apps import load_data, cards_list, details, auth_login, auth_signup, config
 from apps.fnc_container import components
 from flask_login import current_user, logout_user
 
 app.layout = html.Div([
     html.Div(id='logout'),
-    dcc.Store(id='test'),
+    dcc.Interval(id='get_files_interval', interval=1000, n_intervals=1),
+    dcc.Store(id='update_trigger', data=False),
     dcc.Store(id='filter_options'),
     dcc.Store(id='currentSelectedlistItem'),
     dcc.Store(id='pagination_status'),
@@ -63,6 +64,11 @@ def display_page(pathname):
         if not current_user.is_authenticated: 
             return auth_login.layout, components.build_a_link(pathname, current_user)
         return details.layout, components.build_a_link(pathname, current_user)
+    
+    elif pathname == '/config':
+        if not current_user.is_authenticated: 
+            return auth_login.layout, components.build_a_link(pathname, current_user)
+        return config.layout, components.build_a_link(pathname, current_user)
     
     else:
         return html.H3('404 "URL not found"'), components.build_a_link(pathname, current_user)
