@@ -15,6 +15,15 @@ from datetime import datetime
 from flask_login import current_user
 import dash_dangerously_set_inner_html
 import datetime
+from time import sleep
+def not_selected(row, previous_selected):
+    selected_card = previous_selected.loc[
+        (previous_selected['type_id_int']==int(row['type_id_int'])) &
+        (previous_selected['gang_number']==int(row['gang_number'])) &
+        (previous_selected['type_id_str']==int(row['type_id_str']))
+    ]
+    return selected_card.empty
+
 
 def show_items(listgroup_values, mainCallBack=True):
     listgroup_values = listgroup_values.sort_values(by=['type'])
@@ -47,9 +56,12 @@ def show_items(listgroup_values, mainCallBack=True):
     ])
 
 
-def show_cards(cards_values_df, previous_selected):
+def show_cards(cards_values_df):
+    previous_selected_df = crud_op_db.get_selected_items()
+    previous_selected = hlp.df2list(previous_selected_df)
+    onProduction = crud_op_db.get_on_production()
     def build_card_header(card_id):
-        card = cards_values_df.loc[cards_values_df['type_id_int'] == card_id]
+        card = cards_values_df.loc[cards_values_df['type_id_int'] == card_id][:]
         card_time = f'{card["card_time"].values[0]}'
         waitress = f'{card["waitress"].values[0]}'
         process = f'{card["process"].values[0]}'
@@ -58,9 +70,11 @@ def show_cards(cards_values_df, previous_selected):
             html.P(waitress),
             html.P(card_time),
         ], id='card_head')
-
         return header
-    previousEnabledCards = [int(id.split('_')[0]) for id in previous_selected]
+
+    if onProduction.empty: 
+        onProduction['type_id_int'] = []
+
     cards = html.Div([
         html.Div(
             html.Div(
@@ -87,26 +101,27 @@ def show_cards(cards_values_df, previous_selected):
                                             'index': f'{int(card_id)}_{i}'
                                         }, 
                                         children=hlp.card_body(
-                                            cards_values_df.loc[(cards_values_df['type_id_int'] == card_id)], 
+                                            cards_values_df.loc[cards_values_df['type_id_int'] == card_id][:], 
                                             previous_selected
                                         )
                                     )
                                 ])
                             ],
-                            className = 'enable_card' if card_id in previousEnabledCards else 'disabled' 
+                            className = 'enable_card' if card_id in list(onProduction['type_id_int']) else 'disabled' 
                         ),
 
                         dbc.CardFooter([
                             dbc.Button(
-                                'Stop' if card_id in previousEnabledCards else 'Start',
-                                color='danger' if card_id in previousEnabledCards else 'success',
+                                'Stop' if card_id in list(onProduction['type_id_int']) else 'Start',
+                                color='danger' if card_id in list(onProduction['type_id_int']) else 'success',
                                 size="lg",
                                 className='m-4',
                                 id={
                                     'id': 'commit_substraction_btn',
                                     'index': f'{int(card_id)}_{i}_{"_".join(list(cards_values_df[cards_values_df["type_id_int"]==card_id]["type_id_str"]))}'
                                 },
-                                disabled=False
+                                disabled=False,
+                                n_clicks= 1 if card_id in list(onProduction['type_id_int']) else 0
                             )],
                             style={'textAlign': 'center'})
                     ], style={'marginTop': '10px', 'marginRight': '10px', 'whiteSpace': 'pre-line'}, className='card'), 
@@ -127,7 +142,7 @@ def show_cards(cards_values_df, previous_selected):
             className='.has-row-10', 
             id=f'card_{i}'
         )
-        for i, card_id in enumerate(cards_values_df['type_id_int'].drop_duplicates())
+        for i, card_id in enumerate(cards_values_df.type_id_int.drop_duplicates())
     ], className='grid has-cols-1 is-dense has-cols-xs-1 has-cols-sm-2 has-cols-md-3 has-cols-lg-4')
 
     return cards
@@ -174,9 +189,9 @@ layout = html.Div(
 
 # using serverside callback
 @app.callback(
-    Output('server-time', 'children'),
-    Output('update_trigger', 'data'), 
-    Input('get_files_interval', 'n_intervals'),
+   Output('server-time', 'children'),
+   Output('update_trigger', 'data'), 
+   Input('get_files_interval', 'n_intervals'),
 )
 def update_timer(n_intervals):
     mins, secs = divmod(30-(n_intervals%30), 60)
@@ -192,7 +207,6 @@ def update_timer(n_intervals):
 @app.callback(
     Output('input_data', 'data'),
     Output('pagination_status', 'data'),
-    #Output('no_data', 'children'),
     Input('update_trigger', 'data'), 
     Input('url', 'pathname'), 
     Input('prev', 'n_clicks'),
@@ -279,7 +293,6 @@ def fetch_data(update_trigger, pathname, prev, next, show_all, cardContainerClas
             raise PreventUpdate
 
     elif not 'url' in call_context['prop_id'] and call_context['value'] > 0: 
-
         if context == 'next': 
             # Get the next 10 cards
             cards_df = crud_op_db.read_food_cards(id_int=pagination_status['last_id'])
@@ -334,6 +347,7 @@ def fetch_data(update_trigger, pathname, prev, next, show_all, cardContainerClas
 
     if pathname == '/items-selection' and current_user.is_authenticated:
         cards_df = crud_op_db.read_food_cards()
+        
         if not cards_df.empty:
             pagination_status = {
                 'first_id': min(cards_df['type_id_int']),
@@ -366,8 +380,7 @@ def show_page(input_data):
     
     input_data = input_data or {}
     cards_values_df = pd.DataFrame.from_dict(input_data['data'].get('cards_values', []))
-    previous_selected = input_data['data'].get('selected', [])
-    return show_cards(cards_values_df, previous_selected)
+    return show_cards(cards_values_df)
 
 
 # Enable card elements if "Start" button clicked ! 
@@ -382,6 +395,9 @@ def show_page(input_data):
 )
 def enable_card(subBtn, subBtnState): 
     if subBtnState == 'Start': 
+        callContext = dash.callback_context.triggered[0]
+        context = json.loads(callContext['prop_id'].split('.')[0])
+        crud_op_db.on_production(int(context['index'].split('_')[0]))
         return 'enable_card', 'Stop', 'danger', False
 
     raise PreventUpdate
@@ -392,24 +408,24 @@ def enable_card(subBtn, subBtnState):
     Output({'id': 'popover', 'index': MATCH}, 'is_open'),
     Input({'id': 'commit_substraction_btn', 'index': MATCH}, 'n_clicks'), 
     State({'id': 'commit_substraction_btn', 'index': MATCH}, 'children'), 
-    State('food_tracer', 'data'),
     State('input_data', 'data'), 
     State({'id': 'popover', 'index': MATCH}, 'is_open'),
     prevent_initial_call=False
 )   
-def destroy_card(subBtn, subBtnState, food_tracer, input_data, is_open):  #, selectedCardItems
+def destroy_card(subBtn, subBtnState, input_data, is_open):  
     
     if subBtnState == 'Stop' and dash.callback_context.triggered[0]['value']: 
         context = json.loads(
             dash.callback_context.triggered[0].get('prop_id', None).split('.')[0]
         )
         # Commit the card subtraction to our database: 
-        food_tracer = pd.DataFrame.from_dict(food_tracer)
         type_id_int = int(context['index'].split('_')[0])
-        selected = food_tracer[food_tracer['type_id_int']==type_id_int]['selected'].tolist()
-        if all(selected): 
-            input_data = pd.DataFrame.from_dict(input_data['data']['cards_values'])
-            card_food = input_data[input_data['type_id_int'] == type_id_int]
+        selected_items = crud_op_db.get_selected_items(type_id_int)
+        input_data = pd.DataFrame.from_dict(input_data['data']['cards_values'])
+        card_food = input_data[input_data['type_id_int'] == type_id_int] 
+        if len(card_food) == len(selected_items):
+            crud_op_db.delete_selected_items(selected_items)
+            crud_op_db.out_production(type_id_int)
             crud_op_db.update_vals(card_food)
             return 'destroy_card', False
         else: 
@@ -461,21 +477,27 @@ def show_card_bonus(bonusBtn):
     prevent_initial_call=True
 ) 
 def select_item(cardItem): 
-    if cardItem is None:
+    callContext = dash.callback_context.triggered[0]
+    if cardItem is None or callContext.get('value', 0) == 0:
         raise PreventUpdate 
-
+    context = json.loads(callContext['prop_id'].split('.')[0])
     if cardItem%2==0: 
+        # Delete selected items from tmp table
+        crud_op_db.delete_selected_item(context)
         return 'card-item'
+
+    # Insert all gang items into tmp table
+    crud_op_db.insert_selected_item(context)
     return 'card-item crossout-item'
 
 
 # Handle cardElements clicks (If Gang-x clicked)
-# @app.callback(
-#     Output({'id': 'card_body_value_gang', 'index': MATCH}, 'className'),
-#     Input({'id': 'card_body_value_gang', 'index': MATCH}, 'n_clicks'), 
-#     State({'id': 'card_body_value_gang', 'index': MATCH}, 'className'),
-#     prevent_initial_call=True
-# ) 
+@app.callback(
+    Output({'id': 'card_body_value_gang', 'index': MATCH}, 'className'),
+    Input({'id': 'card_body_value_gang', 'index': MATCH}, 'n_clicks'), 
+    State({'id': 'card_body_value_gang', 'index': MATCH}, 'className'),
+    prevent_initial_call=True
+) 
 def select_item(cardItem, cardItemClass): 
     if cardItem is None:
         raise PreventUpdate 
@@ -488,74 +510,32 @@ def select_item(cardItem, cardItemClass):
 # left list items controller
 @app.callback(
     Output('show_list', 'children'),
-    Output('food_tracer', 'data'),
-    Output('currentSelectedlistItem', 'data'),
-    Input('input_data', 'data'), 
-    Input({'id': 'commit_substraction_btn', 'index': ALL}, 'n_clicks'),
-    Input({'id': 'card_body_value', 'index': ALL}, 'n_clicks'),
-    Input({'id': 'card_body_value_gang', 'index': ALL}, 'n_clicks'),
-    Input({'id': 'lst_item_btn', 'index': ALL}, 'n_clicks'),
-    State({'id': 'commit_substraction_btn', 'index': ALL}, 'children'),
-    State({'id': 'card_body_value', 'index': ALL}, 'className'),
-    State('food_tracer', 'data')
+    Input({'id': 'card_body_value', 'index': ALL}, 'className'),
+    Input({'id': 'card_body', 'index': ALL}, 'className'),
+    Input('input_data', 'data')
 )
-def update_list_items(input_data, start_btn, card_body_value, gangClicks, lst_item_btn, start_btn_status, cardBodyValueClass,food_tracer): #
+def update_list_items(classNameValues, classNameBody, input_data):
     input_data = input_data or {'data': {}}
 
     current_cards = pd.DataFrame.from_dict(input_data['data'].get('cards_values', []))
     if current_cards.empty:
         raise PreventUpdate
 
-    food_tracer = food_tracer or crud_op_db.init_cards_tracer() 
-    if not food_tracer: 
-        raise PreventUpdate
-
-    context = dash.callback_context.triggered
-    food_tracer = pd.DataFrame.from_dict(food_tracer)
-    cntxt = context[0].get('prop_id', None)
-    if 'commit_substraction_btn' in cntxt and len(context) == 1: 
-        context_dict = json.loads(cntxt.split('.')[0])
-        type_id_int = int(context_dict['index'].split('_')[0])
-        card_idx = int(context_dict['index'].split('_')[1])
-        if start_btn_status[card_idx] == 'Start':
-            food_tracer = hlp.update_production(
-                food_tracer,
-                type_id_int
-            )
-            new_cards, _ = hlp.intersection(current_cards, food_tracer)
-            new_list = hlp.foods_listing(new_cards)
-            return show_items(new_list, True), food_tracer.to_dict('records'), None
-    
-    if 'card_body_value' in cntxt and len(context) == 1: 
-        food_tracer = hlp.item_selected(food_tracer, context)
-        new_cards, _ = hlp.intersection(current_cards, food_tracer)
-        new_list = hlp.foods_listing(new_cards)
-        return show_items(new_list, True), food_tracer.to_dict('records'), None
-    
-    if  'lst_item_btn' in cntxt and len(context) == 1:
-        new_cards, _ = hlp.intersection(current_cards, food_tracer)
-        food_tracer = hlp.insert_selected_item_2(food_tracer, context, new_cards)
-        new_cards, _ = hlp.intersection(current_cards, food_tracer)
-        new_list = hlp.foods_listing(new_cards)
-        context_dict = json.loads(cntxt.split('.')[0])
-        return show_items(new_list, True), food_tracer.to_dict('records'), {'selectedItem': context_dict['index']}
-
-    new_cards, food_tracer = hlp.intersection(current_cards, food_tracer, input_data['data'].get('selected', None))
-    new_list = hlp.foods_listing(new_cards)
-
-    return show_items(new_list, True), food_tracer.to_dict('records'), None
+    previous_selected = hlp.update_and_aggr(current_cards)
+    new_list = hlp.foods_listing(previous_selected)
+    return show_items(new_list, True)
 
 
 @app.callback(
     Output({'id': 'card_body_value', 'index': ALL}, 'n_clicks'),
-    Input('currentSelectedlistItem', 'data'),
+    Input({'id': 'lst_item_btn', 'index': ALL}, 'n_clicks'),
     Input({'id': 'card_body_value_gang', 'index': ALL}, 'n_clicks'),
-    State('food_tracer', 'data'), 
     State({'id': 'card_body_value', 'index': ALL}, 'id'),
+    State({'id': 'card_body_value', 'index': ALL}, 'className'),
     State({'id': 'card_body_value', 'index': ALL}, 'n_clicks'),
     prevent_initial_call=True
 )
-def update_card_item(currentListItem, gangClicks, foodTracer, cardBodyIds, cardBodyVal): 
+def update_card_item(currentListItem, gangClicks, cardBodyIds, itemClassName, cardBodyVal): 
     context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     if 'card_body_value_gang' in context: 
         value = dash.callback_context.triggered[0].get('value', None)
@@ -564,19 +544,21 @@ def update_card_item(currentListItem, gangClicks, foodTracer, cardBodyIds, cardB
         idx = [i for i, d in enumerate(cardBodyIds) if f"{context_dict['index']}_" in d['index']]
         if value%2 == 0:
             for i in idx: 
-                cardBodyVal[i] = 0
+                cardBodyVal[i] = 2
         else: 
             for i in idx: 
                 cardBodyVal[i] = 1
-                
+
         return cardBodyVal
-        
-    if currentListItem: 
-        foodTracer = pd.DataFrame.from_dict(foodTracer)
-        if foodTracer.loc[foodTracer['type_id_str'] == currentListItem['selectedItem'], 'production'].iloc[0]:
-            idx = next((index for (index, d) in enumerate(cardBodyIds) if currentListItem['selectedItem'] in d["index"]), None)
-            cardBodyVal[idx] = 1
-            return cardBodyVal
+    
+    if 'lst_item_btn' in context and dash.callback_context.triggered[0]['value'] is not None:
+        context_dict = json.loads(context)
+        type_id_str = context_dict['index']
+        for idx, (itemId, classNm) in enumerate(zip(cardBodyIds, itemClassName)):
+            if str(type_id_str) in itemId['index'] and 'crossout-item' not in classNm:
+                cardBodyVal[idx] = 1
+                return cardBodyVal
+
     raise PreventUpdate
 
 

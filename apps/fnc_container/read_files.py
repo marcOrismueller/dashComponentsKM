@@ -27,7 +27,8 @@ def read_files(folderPath='./samples', lastFileReaded=None):
 
                 f = open(path_file, "rb")
                 raw = json.dumps(f.read().decode(errors='replace'))
-                regex_one = r"(?:(?:VL)|(?:B\\u000f))(\\u([a-z]+|000\d))+((\$[A-Z])|(\$\d)|(\$)| |(?:\#[^A-Z ])|\\u[0-9a-z]+)*([a-zA-Z0-9 \/\-:\.\+\,#&]+(?:(?:(?:(?:(?:\\u[a-zA-Z]+)? ?\(\d* ?[a-zA-Z.]+\) *\\ufffd)|\\ufffd(?:[A-Za-z]*)?)|(?:(?:(?:\$2\$L\$G)|(?:\$G\$2\$L\\u0000L\$G))\\u0000(?:\\ufffd[a-zA-Z]?)?[A-Za-z]*(?:\(?\d* ?[a-zA-Z.]+\)?)? *\\ufffd)|(?:\([^()]*\)))? ?[0-9\.\/ ,+]*)?)"
+
+                regex_one = r"(?:(?:[VW]L)|(?:B\\u000f))(\\u([a-z]+|000\d))+((\$[A-Z])|(\$\d)|(\$)| |(?:\#[^A-Z ])|\\u[0-9a-z]+)*((?:[a-zA-Z0-9 \/\-:\.\+\,#&]+(?:(?:(?:(?:(?:\\u[a-zA-Z]+)? ?\(\d* ?[a-zA-Z.]+\) *\\ufffd)|\\ufffd(?:[A-Za-z]*)?)|(?:(?:(?:\$2\$L\$G)|(?:\$G\$2\$L\\u0000L\$G))\\u0000(?:\\ufffd[a-zA-Z]?)?[A-Za-z]*(?:\(?\d* ?[a-zA-Z.]+\)?)? *\\ufffd)|(?:\([^()]*\)))? ?[0-9\.\/ ,+]*)?)|(?:(?:\* ){3,5}[A-Z ]{3,50}(?:\* ){3,5}))"
                 raw = re.split(r"\w* ?(?:Zusammenfassung|Total)", raw)[0]
     
                 matches = re.finditer(regex_one, raw, re.MULTILINE)
@@ -39,7 +40,7 @@ def read_files(folderPath='./samples', lastFileReaded=None):
                         if len(line) > 1:
                             text += line
     
-                regex = r"(^#COPY$)|(^E$)|(^e$)|(^\d+$)|(Nr.:\d+)|(^\-[A-Z][a-z]{2,10}\-\d{2} \d{2}:\d{2})|(^: (\d|\d{2}|\d{3}))|( …)|(^\. Gang)|(\d+ Total .*)|(^\+(?=[A-Z]))"
+                regex = r"(^#COPY$)|(^E$)|(^e$)|(^\d+$)|(Nr.:\d+)|(^\-[A-Z][a-z]{2,10}\-\d{2} \d{2}:\d{2})|(^: (\d|\d{2}|\d{3}))|( …)|(^\. Gang)|(\d+ Total .*)|(^ *: *\d* *$)|(^\+(?=[A-Z]))"
     
                 text = re.sub(regex, "", text, flags=re.MULTILINE)
     
@@ -65,6 +66,7 @@ def read_files(folderPath='./samples', lastFileReaded=None):
                 text = re.sub(r"\n", " ", text, flags=re.MULTILINE)
     
                 text = re.sub(r"([A-Z]+ +)(?:\1)+", r"\1", text, flags=re.MULTILINE)
+                # print(text)
                 parts = re.split(r'(?:(?<=\:\s\d\d\d)\s+|(?<=\:\s\d\d)\s+|(?<=\:\s\d)\s+|(?<=.)\s(?=[A-Z\s]+\d{1,2}x\b)|(?<=.)\s(?=\d{1,2}x\b))', text, maxsplit=1)
     
                 parts[0] = parts[0].lstrip().rstrip()
@@ -91,7 +93,6 @@ def update_data():
 
     listgroup_values = ast.literal_eval(str(card_body_list))
     cards_headers = ast.literal_eval(str(card_header_list))
-    
     new_cards_values = helpers.extract_informations(listgroup_values, cards_headers)
     # Push the data to our database...
     res = crud_op_db.update_foods(new_cards_values)

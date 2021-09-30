@@ -1,6 +1,168 @@
 from app import engine
 from flask_login import current_user
 import pandas as pd
+import json
+
+def ctx2ID(context, current_cards=None):
+    context_dict = context[0].get('prop_id', None)
+    context_dict = json.loads(context_dict.split('.')[0])
+    type_id_str = context_dict['index'].split('_')[-1]
+    if len(context_dict['index'].split('_')) > 1:
+        type_id_int = context_dict['index'].split('_')[0]
+        gang_number = context_dict['index'].split('_')[1]
+        return type_id_int, gang_number, type_id_str
+
+    available_cards = current_cards.loc[
+        (current_cards['type_id_str'] == type_id_str) &
+        (current_cards['selected'] == 0) &
+        (current_cards['production'] > 0)
+    ]
+    if not available_cards.empty:
+        print(available_cards)
+        type_id_int = available_cards['type_id_int'].values[0]
+        gang_number = available_cards['gang_number'].values[0]
+        return type_id_int, gang_number, type_id_str
+    
+    return None, None
+    
+def on_production(type_id_int):
+    conn = engine.connect()
+    res = conn.execute(f'''
+        INSERT INTO current_production_cards_tmp (
+            user_id,
+            type_id_int
+        ) VALUES (
+            {current_user.id},
+            {type_id_int}
+        ) ON DUPLICATE KEY UPDATE user_id={current_user.id};
+    ''')
+    conn.close()
+    return res
+
+def get_on_production(): 
+    conn = engine.connect()
+    q = f'''
+        SELECT user_id, type_id_int 
+        FROM current_production_cards_tmp 
+        WHERE user_id={current_user.id};
+    '''
+    rows = conn.execute(q)
+    selected_items = pd.DataFrame(rows.fetchall())
+    if not selected_items.empty:
+        selected_items.columns = [key for key in rows.keys()]
+        conn.close()
+        return selected_items
+    return selected_items
+
+def out_production(type_id_int):
+    conn = engine.connect()
+    res = conn.execute(f'''
+        DELETE FROM current_production_cards_tmp 
+        WHERE user_id={current_user.id} AND type_id_int={type_id_int};
+    ''')
+    conn.close()
+    return res
+
+
+def insert_selected_item(context): #, clicked='cardItem', current_cards=None
+    conn = engine.connect()
+    values = context['index'].split('_')
+    res = conn.execute(f'''
+        INSERT INTO current_selected_items_tmp (
+            user_id,
+            type_id_int,
+            gang_number,
+            type_id_str
+        ) VALUES (
+            {current_user.id},
+            {values[0]},
+            {values[1]},
+            {values[2]}
+        ) ON DUPLICATE KEY UPDATE user_id={current_user.id};
+    ''')
+    conn.close()
+    return res
+
+def insert_selected_items(context):
+    conn = engine.connect()
+    res = conn.execute(f'''
+        INSERT INTO current_selected_items_tmp (
+            user_id,
+            type_id_int,
+            gang_number,
+            type_id_str
+        ) 
+        SELECT user_id, food_type_id_int as type_id_int, food_gang_number as gang_number, food_type_id_str as type_id_str 
+        FROM food
+        WHERE user_id={current_user.id} AND 
+        food_type_id_int={int(context['index'].split('_')[0])} AND 
+        food_gang_number={int(context['index'].split('_')[1])}
+        ON DUPLICATE KEY UPDATE user_id={current_user.id};
+    ''')
+    conn.close()
+    return res
+
+def delete_selected_item(context):
+    conn = engine.connect()
+    values = [int(v) for v in context['index'].split('_')]
+    res = conn.execute(f'''
+        DELETE FROM current_selected_items_tmp 
+        WHERE 
+            user_id = {current_user.id} AND 
+            type_id_int={values[0]} AND 
+            gang_number={values[1]} AND
+            type_id_str={values[2]};
+    ''')
+    conn.close()
+    return res
+
+def delete_selected_items(selected_items):
+    conn = engine.connect()
+    for i, row in selected_items.iterrows():
+        res = conn.execute(f'''
+            DELETE FROM current_selected_items_tmp 
+            WHERE 
+                user_id = {current_user.id} AND 
+                type_id_int={row['type_id_int']} AND 
+                type_id_str={row['type_id_str']};
+        ''')
+    conn.close()
+    return res
+
+def delete_selected_items_gang(context):
+    conn = engine.connect()
+    res = conn.execute(f'''
+        DELETE FROM current_selected_items_tmp 
+        WHERE 
+            user_id = {current_user.id} AND 
+            type_id_int={int(context['index'].split('_')[0])} AND 
+            gang_number={int(context['index'].split('_')[1])};
+    ''')
+    conn.close()
+    return res
+
+
+def get_selected_items(type_id_int=None):
+    conn = engine.connect()
+    if type_id_int is not None: 
+        q = f'''
+            SELECT * 
+            FROM current_selected_items_tmp 
+            WHERE user_id={current_user.id} AND type_id_int={type_id_int};
+        '''
+    else: 
+        q = f'''
+            SELECT * 
+            FROM current_selected_items_tmp 
+            WHERE user_id={current_user.id};
+        '''
+    rows = conn.execute(q)
+    selected_items = pd.DataFrame(rows.fetchall())
+    if not selected_items.empty:
+        selected_items.columns = [key for key in rows.keys()]
+        conn.close()
+        return selected_items
+    return selected_items
 
 def update_printers_folder_path(folderPath):
     conn = engine.connect()

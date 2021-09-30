@@ -9,6 +9,32 @@ from app import engine
 from apps.fnc_container import crud_op_db
 import dash_dangerously_set_inner_html
 
+def update_and_aggr(currentCards):
+    selectedItems = crud_op_db.get_selected_items()
+    onProduction = crud_op_db.get_on_production()
+    for i, row in selectedItems.iterrows(): 
+        currentCards['selected'] = np.where(
+                    (currentCards['type_id_int'].astype(int) == int(row['type_id_int'])) &
+                    (currentCards['gang_number'].astype(int) == int(row['gang_number'])) & 
+                    (currentCards['type_id_str'].astype(int) == int(row['type_id_str']))
+                    , 1, currentCards['selected']
+                )
+    for i, row in onProduction.iterrows():
+        currentCards['production'] = np.where(
+                    currentCards['type_id_int'].astype(int) == int(row['type_id_int']), 
+                    currentCards['available_quantity'], 
+                    currentCards['production']
+                )
+
+    return currentCards
+
+
+def df2list(previous_selected):
+    r = []
+    for i, row in previous_selected.iterrows(): 
+        r.append(f"{row['type_id_int']}_{row['gang_number']}_{row['type_id_str']}")
+    return r
+
 def hash_name(name=None):
     new_name = ""
     for character in name:
@@ -103,12 +129,13 @@ def card_body(b, previous_selected):
                         )
                     ], className='gang-items', style={'display': 'none' if gang_number==0 else 'flex'})
             price = "{:0,.2f}".format(float(opt['price'])).replace('.', ',')
-                
+            
             options.append(
                 html.Div([
                     html.Div([
                         html.B(
-                            f"{opt['type']} {price}", 
+                            #f"{opt['type']} {price}", 
+                            f"{opt['available_quantity']}x {opt['type_only']} {price}", 
                             className='main-food'
                         ),
                         html.Div([
@@ -217,7 +244,7 @@ def get_opts_vals(substruct_if_clicked, vals, cards):
 
 def is_date(info='15-Apr-21'):
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Juni',
-              'Juli', 'Aug', 'Sept', 'Okt', 'Nov', 'Dez']
+              'Juli', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
     infos = info.split('-')
     if len(infos) == 3 and infos[0].isnumeric() and infos[2].isnumeric() and infos[1] in months:
         return True
@@ -285,10 +312,9 @@ def get_type_details(chunk):
     prices = re.findall("\d+\.\d+", chunk)
     if prices:
         price = float(prices[0])
-    quantities = re.findall(r'\d+', chunk)
+    quantities = re.findall(r"[+-]?\d+(?:\.\d+)?", chunk)
     if quantities:
         quantity = int(quantities[0])
-
     food_type_only = ''
     infos = chunk.replace('/', '').split()[1:]
     for i, x in enumerate(infos):
@@ -304,6 +330,7 @@ def get_type_details(chunk):
     return result
 
 
+
 def generate_opt_ids(df):
     result = pd.DataFrame()
     for type_id_int in df['type_id_int'].drop_duplicates():
@@ -312,9 +339,17 @@ def generate_opt_ids(df):
         result = result.append(chunk_df, ignore_index=True)
     return result
 
+def clean_item(item): 
+    numbers = re.findall(r"[+-]?\d+(?:\.\d+)?", item)
+    for n in numbers: 
+        if float(n) < 0: 
+            newItem = item[item.find(f'{n}x'):]
+            return newItem
+    return item
 
 # infos = '1. Gang 1x Ribollita 6.50/ 1 #Standard 6.50/ 1 1x Tomatencremesuppe 6.50/ 2 #Standard 6.50/ 2 2. Gang 6.50/ 2 6.50/ 2 1x Chili con Carne 8.50/ 2 #Standard 8.50/ 2 '
 def extract_card_info(infos, header, idx):
+    infos = clean_item(infos)
     body = infos.replace(header, '').strip()
     body_infos = re.split(r'\s(?=\d+. Gang|\d+x)', body)
     df = pd.DataFrame()
@@ -353,13 +388,15 @@ def extract_card_info(infos, header, idx):
                     bonus.append(chunk)
                 else:
                     row.update(get_type_details(chunk))
-            row['type_id_str'] = hash_name(info+' '+header)
             row['bonus'] = '\n'.join(bonus)
             row['type_id_int'] = idx
             row['bonus_separtor'] = bonus_separtor
             if not header_success:
                 row_dict = extract_header_infos(header)
                 header_success = True
+            row['type_id_str'] = hash_name(
+                (str(row_dict['station'])+str(row_dict['waitress'])+str(row_dict['table'])+str(row['type_only'])+str(row['bonus'])).lower().strip()
+            )
             row.update(row_dict)
             df = df.append(row, ignore_index=True)
     df = generate_opt_ids(df)
@@ -383,7 +420,8 @@ def foods_listing(df):
         'type_only': 'last',
         'bonus': 'last',
         'production': 'sum',
-        'selected': 'sum'
+        'selected': 'sum',
+        'gang_number': 'last'
     }).reset_index()
     result['type_id_int'] = range(len(result))
     result['available_quantity'] -= result['production']
