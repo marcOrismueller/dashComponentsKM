@@ -340,23 +340,27 @@ def generate_opt_ids(df):
     return result
 
 def clean_item(item): 
+    order_type = 'order'
+    if 'Fehlbestellung' in item: 
+        order_type = 're_order'
     numbers = re.findall(r"[+-]?\d+(?:\.\d+)?", item)
     for n in numbers: 
         if float(n) < 0: 
             newItem = item[item.find(f'{n}x'):]
-            return newItem
-    return item
+            return newItem, order_type
+    return item, order_type
 
 # infos = '1. Gang 1x Ribollita 6.50/ 1 #Standard 6.50/ 1 1x Tomatencremesuppe 6.50/ 2 #Standard 6.50/ 2 2. Gang 6.50/ 2 6.50/ 2 1x Chili con Carne 8.50/ 2 #Standard 8.50/ 2 '
 def extract_card_info(infos, header, idx):
-    infos = clean_item(infos)
+    infos, order_type = clean_item(infos)
     body = infos.replace(header, '').strip()
     body_infos = re.split(r'\s(?=\d+. Gang|\d+x)', body)
     df = pd.DataFrame()
     row = {
         'gang_title': '',
         'gang_number': 0,
-        'gang_id': ''
+        'gang_id': '', 
+        'order_type': order_type
     }
     header_success = False
     for info in body_infos:
@@ -413,7 +417,7 @@ def extract_informations(input_data, cards_headers):
 
 
 def foods_listing(df):
-    result = df.groupby(['type_id_str']).agg({
+    result = df.groupby(['type_id_str', 'order_type']).agg({
         'available_quantity': 'sum',
         'price': 'sum',
         'type': 'last',

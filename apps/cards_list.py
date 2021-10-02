@@ -190,16 +190,21 @@ layout = html.Div(
 # using serverside callback
 @app.callback(
    Output('server-time', 'children'),
-   Output('update_trigger', 'data'), 
+   Output('update_trigger', 'data'),
    Input('get_files_interval', 'n_intervals'),
+   Input({'id': 'card_body', 'index': ALL}, 'className')
 )
-def update_timer(n_intervals):
+def update_timer(n_intervals, cardBodiesClass):
+    context = dash.callback_context.triggered[0]
     mins, secs = divmod(30-(n_intervals%30), 60)
     timer = '{:02d}:{:02d}'.format(mins, secs)
+    if 'card_body' in context['prop_id'] and 're_order' in context['value']:
+        return f'Checking for new files in {timer}', True
+    
     if 30-(n_intervals%30) == 30: 
         # Read the new files 
         res = read_files.update_data()
-        return f'Checking for new files in {timer} (No data)', res
+        return f'Checking for new files in {timer}', res
     return f'Checking for new files in {timer}', False
     
 
@@ -371,7 +376,7 @@ def fetch_data(update_trigger, pathname, prev, next, show_all, cardContainerClas
     Output('show_cards', 'children'),
     Input('input_data', 'data')
 )
-def show_page(input_data):
+def show_cards_page(input_data):
     context = dash.callback_context.triggered
     if context[0]['prop_id'] == '.':
         raise PreventUpdate
@@ -381,6 +386,25 @@ def show_page(input_data):
     input_data = input_data or {}
     cards_values_df = pd.DataFrame.from_dict(input_data['data'].get('cards_values', []))
     return show_cards(cards_values_df)
+
+
+# left list items controller
+@app.callback(
+    Output('show_list', 'children'),
+    Input({'id': 'card_body_value', 'index': ALL}, 'className'),
+    Input({'id': 'card_body', 'index': ALL}, 'className'),
+    Input('input_data', 'data')
+)
+def update_list_items(classNameValues, classNameBody, input_data):
+    input_data = input_data or {'data': {}}
+
+    current_cards = pd.DataFrame.from_dict(input_data['data'].get('cards_values', []))
+    if current_cards.empty:
+        raise PreventUpdate
+
+    previous_selected = hlp.update_and_aggr(current_cards)
+    new_list = hlp.foods_listing(previous_selected)
+    return show_items(new_list, True)
 
 
 # Enable card elements if "Start" button clicked ! 
@@ -397,9 +421,11 @@ def enable_card(subBtn, subBtnState):
     if subBtnState == 'Start': 
         callContext = dash.callback_context.triggered[0]
         context = json.loads(callContext['prop_id'].split('.')[0])
-        crud_op_db.on_production(int(context['index'].split('_')[0]))
-        return 'enable_card', 'Stop', 'danger', False
-
+        re_order = crud_op_db.on_production(int(context['index'].split('_')[0]))
+        if re_order:
+            return 'enable_card re_order', 'Stop', 'danger', False
+        else: 
+            return 'enable_card', 'Stop', 'danger', False
     raise PreventUpdate
 
 # Destroy/hide the card if "Stop" button clicked !
@@ -505,25 +531,6 @@ def select_item(cardItem, cardItemClass):
     if cardItem%2==0: 
         return 'card-item'
     return 'card-item crossout-item'
-
-
-# left list items controller
-@app.callback(
-    Output('show_list', 'children'),
-    Input({'id': 'card_body_value', 'index': ALL}, 'className'),
-    Input({'id': 'card_body', 'index': ALL}, 'className'),
-    Input('input_data', 'data')
-)
-def update_list_items(classNameValues, classNameBody, input_data):
-    input_data = input_data or {'data': {}}
-
-    current_cards = pd.DataFrame.from_dict(input_data['data'].get('cards_values', []))
-    if current_cards.empty:
-        raise PreventUpdate
-
-    previous_selected = hlp.update_and_aggr(current_cards)
-    new_list = hlp.foods_listing(previous_selected)
-    return show_items(new_list, True)
 
 
 @app.callback(

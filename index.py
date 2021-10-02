@@ -10,6 +10,7 @@ from flask_login import current_user, logout_user
 app.layout = html.Div([
     html.Div(id='logout'),
     dcc.Interval(id='get_files_interval', interval=1000, n_intervals=1),
+    dcc.Store(id='test', data=False),
     dcc.Store(id='update_trigger', data=False),
     dcc.Store(id='filter_options'),
     dcc.Store(id='currentSelectedlistItem'),

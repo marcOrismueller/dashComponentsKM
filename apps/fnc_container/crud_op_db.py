@@ -18,7 +18,6 @@ def ctx2ID(context, current_cards=None):
         (current_cards['production'] > 0)
     ]
     if not available_cards.empty:
-        print(available_cards)
         type_id_int = available_cards['type_id_int'].values[0]
         gang_number = available_cards['gang_number'].values[0]
         return type_id_int, gang_number, type_id_str
@@ -36,8 +35,34 @@ def on_production(type_id_int):
             {type_id_int}
         ) ON DUPLICATE KEY UPDATE user_id={current_user.id};
     ''')
+
+    # Check the order type (order or re_order)
+    re_order = False
+    rows = conn.execute(f'''
+        SELECT 
+            food_type_id_int AS type_id_int, 
+            food_type_id_str AS type_id_str,
+            food_available_quantity AS available_quantity, 
+            food_totquantity AS totquantity,
+            order_type
+        FROM food
+        WHERE user_id={current_user.id} AND food_type_id_int={type_id_int} AND order_type='re_order';
+    ''')
+    df = pd.DataFrame(rows.fetchall())
+    # If re_order than update the old card
+    if not df.empty:
+        re_order = True
+        df.columns = [key for key in rows.keys()]
+        for i, row in df.iterrows():
+            conn.execute(f"""
+                UPDATE food
+                SET 
+                    food.food_totquantity = food.food_totquantity-{abs(row['totquantity'])}, 
+                    food.food_available_quantity = food.food_available_quantity-{abs(row['available_quantity'])}
+                WHERE user_id={current_user.id} AND food_type_id_str={row['type_id_str']} AND order_type='order'
+            """)
     conn.close()
-    return res
+    return re_order
 
 def get_on_production(): 
     conn = engine.connect()
@@ -227,7 +252,8 @@ def update_foods(df):
                     food_type_only,
                     food_waitress,
                     food_opt_id,
-                    user_id
+                    user_id, 
+                    order_type
                 ) 
             VALUES (
                 '{row["bonus"]}',
@@ -250,7 +276,8 @@ def update_foods(df):
                 '{row["type_only"]}',
                 '{row["waitress"]}',
                 '{row["opt_id"]}',
-                {current_user.id}
+                {current_user.id}, 
+                '{row["order_type"]}'
             ) ON DUPLICATE KEY UPDATE 
                 food.food_totquantity = food.food_totquantity+VALUES(food_totquantity), 
                 food.food_available_quantity = food.food_available_quantity+VALUES(food_available_quantity)
@@ -260,13 +287,13 @@ def update_foods(df):
     return res
 
 def get_last_card_id():
-    con = engine.connect()
-    last_id = con.execute(f'''
+    conn = engine.connect()
+    last_id = conn.execute(f'''
         SELECT MAX(food_type_id_int)
         FROM food
         WHERE user_id={current_user.id}
     ''' ).fetchone()
-    con.close()
+    conn.close()
     if last_id[0]: 
         return last_id[0]+1
     return 0
@@ -280,7 +307,7 @@ def read_food_cards(show_all=False, id_int=None, next=True):
                     SELECT DISTINCT food_type_id_int AS id_int
                     FROM food 
                     WHERE user_id={current_user.id} AND
-                        food_available_quantity > 0 AND 
+                        food_available_quantity != 0 AND 
                         food_type_id_int > {id_int}
                     ORDER BY food_type_id_int ASC
                     LIMIT 10
@@ -296,7 +323,7 @@ def read_food_cards(show_all=False, id_int=None, next=True):
                     SELECT DISTINCT food_type_id_int AS id_int
                     FROM food 
                     WHERE user_id={current_user.id} AND
-                        food_available_quantity > 0 AND 
+                        food_available_quantity != 0 AND 
                         food_type_id_int <= {id_int}
                     ORDER BY food_type_id_int DESC
                     LIMIT 10
@@ -313,7 +340,7 @@ def read_food_cards(show_all=False, id_int=None, next=True):
                     SELECT DISTINCT food_type_id_int AS id_int
                     FROM food 
                     WHERE user_id={current_user.id} AND
-                        food_available_quantity > 0 AND 
+                        food_available_quantity != 0 AND 
                         food_type_id_int >=0
                     ORDER BY food_type_id_int ASC
                     LIMIT 10
@@ -325,7 +352,7 @@ def read_food_cards(show_all=False, id_int=None, next=True):
         else: 
             q = f"""
                 SELECT * FROM food
-                WHERE user_id={current_user.id} AND food_available_quantity > 0 
+                WHERE user_id={current_user.id} AND food_available_quantity != 0 
                 ORDER BY food_type_id_int ASC
             """
     # Fetch data
@@ -353,10 +380,10 @@ def update_production(card):
     conn.close()
 
 def update_vals(card_val): 
-    con = engine.connect()
+    conn = engine.connect()
     for i, row in card_val.iterrows():
         # Update food table
-        con.execute(f"""
+        conn.execute(f"""
             UPDATE food
             SET 
                 food.food_totquantity = food.food_totquantity-{row['totquantity']}, 
@@ -364,7 +391,7 @@ def update_vals(card_val):
             WHERE user_id={current_user.id} AND food_type_id_int={row['type_id_int']} AND food_type_id_str={row['type_id_str']}
         """)
         # Insert food to historical sales
-        con.execute(f"""
+        conn.execute(f"""
             INSERT INTO historical_sales
             (
                 food_food_id, 
@@ -378,7 +405,7 @@ def update_vals(card_val):
                 {row['available_quantity']}
             )
         """)
-    con.close()
+    conn.close()
 
     # update historical_sales table
 
